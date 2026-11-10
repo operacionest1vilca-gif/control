@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tablero de transporte</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg:#f4f6f8; --card:#ffffff; --ink:#14202b; --mut:#5b6b7a; --line:#d9e0e7; --brand:#0b6bcb; --track:#e8edf2;
+    --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b; --neutral:#8a99a8;
+    --good-t:#14532d; --warn-t:#7a4a00; --crit-t:#7a1a14;
+    --km1:#2a78d6; --km2:#a9c9f2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#121212; --card:#1a1a19; --ink:#f0efec; --mut:#a7b0b8; --line:#33383d; --brand:#5aa2f0; --track:#2a2d30; --neutral:#7d8b98; --good-t:#8fe08f; --warn-t:#f5cf6b; --crit-t:#f1a3a3; --km1:#5aa2f0; --km2:#34588a; }
+  }
+  :root[data-theme="dark"] { --km1:#5aa2f0; --km2:#34588a; --bg:#121212; --card:#1a1a19; --ink:#f0efec; --mut:#a7b0b8; --line:#33383d; --brand:#5aa2f0; --track:#2a2d30; --neutral:#7d8b98; --good-t:#8fe08f; --warn-t:#f5cf6b; --crit-t:#f1a3a3; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  header { background:var(--brand); color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px; }
+  header h1 { margin:0; font-size:17px; } header p { margin:1px 0 0; font-size:12px; opacity:.9; }
+  header .grow { flex:1; }
+  header img { height:44px; max-width:128px; object-fit:contain; background:#fff; border-radius:6px; padding:3px; }
+  .btn { font:inherit; font-size:13px; font-weight:600; padding:6px 12px; border-radius:99px; border:1px solid rgba(255,255,255,.7); background:transparent; color:#fff; }
+  main { max-width:640px; margin:0 auto; padding:12px 16px 40px; }
+  .hidden { display:none !important; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .card h2 { margin:0 0 10px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); font-weight:700; }
+  .small { font-size:12px; color:var(--mut); }
+  input[type=password], input[type=text] { width:100%; font:inherit; font-size:17px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); }
+  .send { width:100%; font:inherit; font-weight:700; font-size:17px; padding:14px; border:0; border-radius:12px; background:var(--brand); color:#fff; margin-top:10px; }
+  .msg { padding:10px 12px; border-radius:10px; margin-top:10px; background:#fff4e0; color:var(--warn-t); }
+
+  /* tarjetas de indicadores */
+  .kpis { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:12px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; border-left:5px solid var(--neutral); }
+  .kpi .n { font-size:30px; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; }
+  .kpi .l { font-size:12px; color:var(--mut); margin-top:2px; }
+  .kpi.alerta { border-left-color:var(--crit); } .kpi.alerta .n { color:var(--crit); }
+  .kpi.ok { border-left-color:var(--good); }
+  .kpi.warn { border-left-color:var(--warn); }
+  .kpi.info { border-left-color:var(--brand); }
+
+  /* barra apilada de etapas */
+  .stack { display:flex; gap:2px; height:22px; border-radius:6px; overflow:hidden; background:var(--track); }
+  .stack i { display:block; min-width:0; }
+  .leg { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:10px; font-size:13px; }
+  .leg span { display:inline-flex; align-items:center; gap:6px; }
+  .dot { width:10px; height:10px; border-radius:3px; display:inline-block; }
+
+  /* barras de espera */
+  .bars .r { display:grid; grid-template-columns:92px 1fr 52px; gap:8px; align-items:center; margin:8px 0; font-size:13px; }
+  .bars .nm { line-height:1.15; overflow:hidden; }
+  .bars .nm b { display:block; font-weight:700; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
+  .bars .tr { position:relative; height:12px; background:var(--track); border-radius:0 4px 4px 0; }
+  .bars .fl { position:absolute; left:0; top:0; bottom:0; border-radius:0 4px 4px 0; }
+  .bars .lim { position:absolute; top:-4px; bottom:-4px; width:0; border-left:2px dashed var(--mut); }
+  .bars .val { text-align:right; font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; }
+  .limlbl { font-size:12px; color:var(--mut); margin-top:6px; }
+
+  /* lista de viajes */
+  .v { border:1px solid var(--line); border-left:6px solid var(--neutral); border-radius:12px; padding:10px 12px; margin-bottom:10px; background:var(--card); }
+  .v.s-alerta { border-left-color:var(--crit); } .v.s-supero { border-left-color:var(--serious); }
+  .v.s-ok { border-left-color:var(--good); } .v.s-retraso { border-left-color:var(--warn); }
+  .v .top { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+  .v .pl { font-weight:800; font-size:16px; }
+  .v .ruta { margin:2px 0; font-weight:600; }
+  .v .det { font-size:13px; color:var(--mut); }
+  .tag { display:inline-block; font-size:12px; font-weight:700; padding:2px 9px; border-radius:99px; background:var(--track); color:var(--ink); }
+  .tag.crit { background:#fdeeed; color:var(--crit-t); } .tag.warn { background:#fff4e0; color:var(--warn-t); } .tag.good { background:#e6f4ea; color:var(--good-t); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag.crit { background:#3a1f1d; } :root:not([data-theme="light"]) .tag.warn { background:#3a2e12; } :root:not([data-theme="light"]) .tag.good { background:#17301b; } }
+  .dispf { padding:7px 0; border-top:1px solid var(--line); font-size:13px; line-height:1.35; } .dispf.lib { border-left:3px solid #1e9e5a; padding-left:8px; } .dispf.por { border-left:3px solid #d98a00; padding-left:8px; }
+  .dispb { display:flex; gap:8px; margin-top:10px; } .dispb button { flex:1; font:inherit; font-size:14px; font-weight:700; padding:11px 8px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); } .dispb #btnWa { background:#1e9e5a; border-color:#1e9e5a; color:#fff; }
+  .ph { font-size:16px; margin:6px 2px 4px; }
+  .tabs { display:flex; gap:8px; margin:6px 0 12px; overflow-x:auto; }
+  .tabs button { font:inherit; font-size:13px; font-weight:600; padding:7px 13px; border-radius:99px; border:1px solid var(--line); background:var(--card); color:var(--ink); white-space:nowrap; }
+  .tabs button.on { background:var(--brand); border-color:var(--brand); color:#fff; }
+  table { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
+  th:first-child, td:first-child { width:34%; }
+  th, td { text-align:left; padding:7px 4px; overflow-wrap:anywhere; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  th { color:var(--mut); font-weight:700; font-size:11px; }
+  td.n, th.n { text-align:right; }
+
+  .pw { position:relative; } .pw input { padding-right:68px; } .pw .eye { position:absolute; right:4px; top:50%; transform:translateY(-50%); min-width:56px; height:44px; border:0; background:none; color:var(--brand); font:inherit; font-size:14px; font-weight:700; cursor:pointer; }
+  .seg { display:flex; gap:6px; margin:0 0 8px; } .seg button { flex:1; font:inherit; font-size:13px; font-weight:600; padding:7px; border-radius:99px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+  .seg button.on { background:var(--brand); border-color:var(--brand); color:#fff; }
+  .eta { display:flex; align-items:center; gap:12px; padding:8px 0; border-top:1px solid var(--line); } .eta:first-child { border-top:0; }
+  .eta .h { font-size:22px; font-weight:800; min-width:92px; font-variant-numeric:tabular-nums; }
+  .eta .d { flex:1; font-size:14px; } .eta .d b { display:block; }
+
+  /* producción: pestañas de periodo, barras por camión y km */
+  .per { display:flex; gap:6px; margin:0 0 12px; } .per button { flex:1; font:inherit; font-size:14px; font-weight:700; padding:9px 6px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+  .per button.on { background:var(--brand); border-color:var(--brand); color:#fff; }
+  .kpi .s { font-size:11px; color:var(--mut); margin-top:1px; }
+  .mini { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px; }
+  .mini div { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 6px; text-align:center; }
+  .mini b { display:block; font-size:20px; font-variant-numeric:tabular-nums; } .mini span { font-size:11px; color:var(--mut); line-height:1.2; display:block; }
+  .mini .al b { color:var(--crit); }
+  .prod .r { margin:10px 0; }
+  .prod .h { display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:14px; }
+  .prod .h b { font-size:15px; } .prod .h .vv { font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; }
+  .prod .tr { position:relative; height:14px; background:var(--track); border-radius:0 5px 5px 0; margin:4px 0 2px; }
+  .prod .fl { position:absolute; left:0; top:0; bottom:0; border-radius:0 5px 5px 0; }
+  .prod .seg2 { position:absolute; top:0; bottom:0; }
+  .prod .lim { position:absolute; top:-4px; bottom:-4px; width:0; border-left:2px dashed var(--mut); }
+  .prod .d { font-size:12px; color:var(--mut); font-variant-numeric:tabular-nums; }
+  .dot2 { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:5px; }
+  details.card > summary { cursor:pointer; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); font-weight:700; list-style:none; }
+  details.card > summary::-webkit-details-marker { display:none; }
+  details.card > summary::after { content:' ▾'; } details.card[open] > summary::after { content:' ▴'; }
+  details.card[open] > summary { margin-bottom:10px; }
+  .fin { display:grid; grid-template-columns:1fr auto; gap:2px 8px; padding:8px 0; border-top:1px solid var(--line); font-size:13px; } .fin:first-of-type { border-top:0; }
+  .fin .pl { font-weight:800; } .fin .r2 { color:var(--mut); font-size:12px; grid-column:1 / -1; }
+  .banner { background:#fdeeed; color:var(--crit-t); border-radius:12px; padding:10px 12px; margin-bottom:12px; font-weight:600; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .banner { background:#3a1f1d; } }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="logo.png" alt="" onerror="this.style.display='none'">
+  <div><h1>Tablero de transporte</h1><p id="sub">Inversiones Vilca</p></div>
+  <div class="grow"></div>
+  <button id="btnAct" class="btn hidden" type="button">Actualizar</button>
+</header>
+
+<main>
+  <section id="login" class="card hidden">
+    <label for="clave" class="small">Clave de gerencia</label>
+    <div class="pw"><input id="clave" type="password" autocomplete="off" placeholder="Clave"><button id="verClave" class="eye" type="button" aria-label="Mostrar clave">Ver</button></div>
+    <button id="btnEntrar" class="send" type="button">Entrar</button>
+    <div id="loginMsg"></div>
+  </section>
+
+  <div id="panel" class="hidden">
+    <div id="hora" class="small" style="margin:0 2px 10px"></div>
+
+    <div class="per" id="vista" role="tablist">
+      <button type="button" data-vv="prog" class="on">Programación</button>
+      <button type="button" data-vv="ind">Indicadores</button>
+    </div>
+
+    <div id="ind" class="hidden">
+    <div class="per" id="per" role="tablist">
+      <button type="button" data-p="hoy" class="on">Hoy</button>
+      <button type="button" data-p="semana">Semana</button>
+      <button type="button" data-p="mes">Mes acumulado</button>
+    </div>
+    <div id="perTxt" class="small" style="margin:-4px 2px 10px"></div>
+
+    <div id="kpis" class="kpis"></div>
+    <div id="errProd"></div>
+
+    <section class="card prod">
+      <h2>Viajes por camión</h2>
+      <div id="viajesCamion"></div>
+      <div id="metaTxt" class="small" style="margin-top:8px"></div>
+    </section>
+
+    <section class="card prod">
+      <h2>Kilómetros por camión</h2>
+      <div id="kmCamion"></div>
+      <div id="kmLeg" class="leg"></div>
+      <div id="kmTxt" class="small" style="margin-top:8px"></div>
+    </section>
+
+    </div>
+
+    <div id="vivo">
+      <div id="mini" class="mini"></div>
+
+      <section class="card" id="dispCard">
+        <h2>Disponibilidad de unidades</h2>
+        <div id="dispLibres"></div>
+        <div id="dispPorLib"></div>
+        <div id="dispNota" class="small" style="margin-top:8px"></div>
+        <div class="dispb"><button id="btnWa" type="button">Enviar por WhatsApp</button><button id="btnCopiar" type="button">Copiar texto</button></div>
+      </section>
+
+      <h2 class="ph">Programación de hoy</h2>
+      <div class="tabs" id="tabs">
+        <button data-f="todos" class="on" type="button">Todos</button>
+        <button data-f="activos" type="button">Activos</button>
+        <button data-f="alerta" type="button">Con alerta</button>
+        <button data-f="terminados" type="button">Terminados</button>
+      </div>
+      <div id="viajes"></div>
+
+      <h2 class="ph" id="proxT">Próximos días</h2>
+      <div id="prox"></div>
+
+      <section class="card">
+        <h2>Dónde están los viajes de hoy</h2>
+        <div id="etapas"></div>
+      </section>
+
+      <section class="card">
+        <h2>Llegadas estimadas (ETA)</h2>
+        <div id="etas"></div>
+        <div class="small" style="margin-top:6px">Hora estimada de llegada al destino de los camiones en tránsito. Se recalcula con cada reporte del chofer.</div>
+      </section>
+
+      <details class="card"><summary>Control de esperas (horas)</summary>
+        <div id="esperas" class="bars"></div>
+        <div id="limlbl" class="limlbl"></div>
+      </details>
+    </div>
+
+    <button id="btnSalir" class="btn" type="button" style="color:var(--brand);border-color:var(--line);margin:6px 0">Cerrar sesión</button>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script>
+
+const $ = id => document.getElementById(id);
+const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+             set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fx = (n, d) => n == null ? '–' : Number(n).toLocaleString('es-PE', { minimumFractionDigits: d == null ? 1 : d, maximumFractionDigits: d == null ? 1 : d });
+const hhmm = iso => iso ? new Date(iso).toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit' }) : '';
+
+let vista = LS.get('vista', 'prog'), per = 'hoy', clave = LS.get('clave', ''), datos = null, filtro = 'todos', timer = null;
+
+// Color de cada etapa del viaje (estado = etapa, no categoría de 8 series): rampa de avance + rojo solo para problemas.
+const ETAPAS = [
+  ['Sin iniciar',            '#8a99a8'],
+  ['Fuera de zona / en cola','#ec835a'],
+  ['Espera de carga',        '#fab219'],
+  ['Cargando',               '#5aa2f0'],
+  ['En tránsito cargado',    '#2a78d6'],
+  ['Espera de descarga',     '#d98a00'],
+  ['Descargando',            '#7a5cc7'],
+  ['Terminado',              '#0ca30c']
+];
+
+function entrar(c) {
+  clave = c; $('loginMsg').innerHTML = '';
+  cargar(true);
+}
+
+async function cargar(primera) {
+  let j = null;
+  try { j = await (await fetch(URL_SCRIPT + '?token=' + encodeURIComponent(TOKEN) + '&rol=gerente&clave=' + encodeURIComponent(clave))).json(); } catch (e) {}
+  if (!j) { if (!datos) mostrarLogin('Sin señal. Intenta de nuevo.'); else $('sub').textContent = 'Sin señal · datos de ' + hhmm(datos.generado); return; }
+  if (!j.ok) { clave = ''; LS.set('clave', ''); mostrarLogin(j.error === 'clave' ? 'Clave incorrecta.' : 'Error: ' + (j.error || '')); return; }
+  LS.set('clave', clave);
+  datos = j.panel;
+  $('login').classList.add('hidden'); $('panel').classList.remove('hidden'); $('btnAct').classList.remove('hidden');
+  pintar();
+  if (!timer) timer = setInterval(() => cargar(false), 60000);   // se actualiza solo cada minuto
+}
+
+function mostrarLogin(msg) {
+  $('panel').classList.add('hidden'); $('btnAct').classList.add('hidden'); $('login').classList.remove('hidden');
+  $('loginMsg').innerHTML = msg ? '<div class="msg">' + esc(msg) + '</div>' : '';
+}
+
+function nivelClase(v) {
+  if (v.nivel === 'alerta') return 's-alerta';
+  if (v.nivel === 'supero' || v.nivel === 'incidencia') return 's-supero';
+  if (v.retraso != null && v.retraso > 0) return 's-retraso';
+  if (v.estado === 'Terminado') return 's-ok';
+  return '';
+}
+
+function pintar() {
+  const P = datos, K = P.kpis, PR = P.produccion || {};
+  $('sub').textContent = 'Actualizado ' + hhmm(P.generado) + ' · se refresca solo';
+  $('hora').textContent = K.proximos ? K.proximos + ' viaje(s) programado(s) para próximos días.' : '';
+  pintarProduccion();
+  pintarVivo();
+  aplicarVista();
+}
+function aplicarVista() {
+  $('vivo').classList.toggle('hidden', vista !== 'prog');
+  $('ind').classList.toggle('hidden', vista !== 'ind');
+  [...$('vista').children].forEach(x => x.classList.toggle('on', x.dataset.vv === vista));
+}
+
+const ddmmY = iso => { const p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : ''; };
+
+function pintarProduccion() {
+  const P = datos, PR = P.produccion;
+  const hoyTab = per === 'hoy';
+  [...$('per').children].forEach(x => x.classList.toggle('on', x.dataset.p === per));
+  if (!PR || PR.error || !PR.periodos) {
+    $('kpis').innerHTML = '';
+    $('errProd').innerHTML = '<div class="msg">No se pudo calcular la producción' + (PR && PR.error ? ': ' + esc(PR.error) : '') + '. Revisa que el Code.gs esté actualizado y que exista la hoja Historial.</div>';
+    $('viajesCamion').innerHTML = ''; $('kmCamion').innerHTML = ''; $('kmLeg').innerHTML = ''; $('metaTxt').textContent = ''; $('kmTxt').textContent = ''; $('perTxt').textContent = '';
+    return;
+  }
+  $('errProd').innerHTML = '';
+  const D = PR.periodos[per], M = PR.meta;
+  $('perTxt').textContent = per === 'hoy' ? 'Viajes terminados hoy (' + ddmmY(D.desde) + ')'
+    : per === 'semana' ? 'Del lunes ' + ddmmY(D.desde) + ' a hoy · ' + D.dias_op + ' día(s) de operación'
+    : 'Del ' + ddmmY(D.desde) + ' a hoy · ' + D.dias_op + ' día(s) de operación';
+
+  const sinViaje = D.unidades.filter(u => u.viajes === 0).length;
+  const kp = (n, l, c, s) => '<div class="kpi ' + (c || '') + '"><div class="n"' + (String(n).length > 7 ? ' style="font-size:24px"' : '') + '>' + n + '</div><div class="l">' + l + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>';
+  const cum = D.cumplimiento;
+  $('kpis').innerHTML =
+    kp(D.viajes, 'Viajes terminados', 'ok', D.local + ' local · ' + D.provincia + ' provincia') +
+    kp(cum == null ? '–' : cum + '%', 'Cumplimiento de la meta', cum != null && cum >= 100 ? 'ok' : 'info', 'de ' + D.unidades_n + ' camiones') +
+    kp(fx(D.km_total, 0) + ' km', 'Km recorridos', 'info', PR.regreso ? 'ida ' + fx(D.km_cargado, 0) + ' + regreso ' + fx(D.km_regreso, 0) : 'solo con carga') +
+    kp(sinViaje, 'Camiones sin viajes', sinViaje ? 'warn' : 'ok', per === 'hoy' ? 'hoy' : 'en el periodo');
+
+  // Viajes por camión: barra = % de la meta; línea punteada = 100 %
+  const maxPct = Math.max(100, ...D.unidades.map(u => u.cumplimiento));
+  $('viajesCamion').innerHTML = D.unidades.length ? D.unidades.map(u => {
+    const col = u.cumplimiento >= 100 ? css('--good') : css('--brand');
+    return '<div class="r" title="' + esc(u.placa) + ': ' + u.viajes + ' viajes, ' + u.cumplimiento + '% de la meta">' +
+      '<div class="h"><b>' + esc(u.placa) + '</b><span class="vv">' + u.viajes + (u.viajes === 1 ? ' viaje' : ' viajes') + ' · ' + u.cumplimiento + '%' + (u.cumplimiento >= 100 ? ' ✓' : '') + '</span></div>' +
+      '<div class="tr"><div class="fl" style="width:' + (Math.min(u.cumplimiento, maxPct) / maxPct * 100) + '%;background:' + col + '"></div><div class="lim" style="left:' + (100 / maxPct * 100) + '%"></div></div>' +
+      '<div class="d">' + u.local + ' local · ' + u.provincia + ' provincia</div></div>';
+  }).join('') : '<div class="small">Sin camiones en la lista.</div>';
+  $('metaTxt').textContent = 'Meta: ' + M.local + ' vueltas por día en Lima, ' + M.provincia + ' viaje por día en provincia. 100 % = meta cumplida (línea punteada).';
+
+  // Km por camión: barra apilada (con carga + regreso vacío estimado)
+  const conKm = D.unidades.filter(u => u.km_total > 0);
+  const maxKm = Math.max(1, ...conKm.map(u => u.km_total));
+  $('kmCamion').innerHTML = conKm.length ? conKm.map(u => {
+    const a = u.km_cargado / maxKm * 100, b = u.km_regreso / maxKm * 100;
+    return '<div class="r" title="' + esc(u.placa) + ': ' + u.km_total + ' km">' +
+      '<div class="h"><b>' + esc(u.placa) + '</b><span class="vv">' + fx(u.km_total, 0) + ' km</span></div>' +
+      '<div class="tr"><div class="fl" style="width:' + a + '%;background:var(--km1)"></div>' +
+      (u.km_regreso ? '<div class="seg2" style="left:calc(' + a + '% + 2px);width:calc(' + b + '% - 2px);background:var(--km2);border-radius:0 5px 5px 0"></div>' : '') + '</div>' +
+      '<div class="d">con carga ' + fx(u.km_cargado, 0) + (u.km_regreso ? ' · regreso ' + fx(u.km_regreso, 0) : '') + '</div></div>';
+  }).join('') : '<div class="small">Todavía no hay viajes terminados con ruta cargada en este periodo.</div>';
+  $('kmLeg').innerHTML = '<span><i class="dot2" style="background:var(--km1)"></i>Con carga</span>' + (PR.regreso ? '<span><i class="dot2" style="background:var(--km2)"></i>Regreso vacío (estimado)</span>' : '');
+  $('kmTxt').textContent = 'Km de cada ruta (hoja Rutas), no de odómetro' + (PR.regreso ? '; el regreso se estima igual a la ida' : '') + '.' +
+    (D.sin_ruta ? ' ' + D.sin_ruta + ' viaje(s) sin ruta cargada no suman km.' : '');
+}
+
+function pintarVivo() {
+  const P = datos, K = P.kpis;
+  $('mini').innerHTML =
+    '<div><b>' + K.en_transito + '</b><span>En tránsito</span></div>' +
+    '<div><b>' + K.en_espera + '</b><span>En espera</span></div>' +
+    '<div class="' + (K.alertas ? 'al' : '') + '"><b>' + K.alertas + '</b><span>Con alerta (≥ ' + P.umbral + ' h)</span></div>' +
+    '<div><b>' + K.con_retraso + '</b><span>Con retraso previsto</span></div>';
+
+  // Etapas: barra apilada + leyenda con números (el color nunca va solo)
+  $('etapas').innerHTML = '<div class="stack" role="img" aria-label="Viajes por etapa">' +
+    ETAPAS.map(e => P.etapas[e[0]] ? '<i style="flex:' + P.etapas[e[0]] + ';background:' + e[1] + '" title="' + esc(e[0]) + ': ' + P.etapas[e[0]] + '"></i>' : '').join('') + '</div>' +
+    '<div class="leg">' + ETAPAS.filter(e => P.etapas[e[0]]).map(e => '<span><i class="dot" style="background:' + e[1] + '"></i>' + esc(e[0]) + ' <b>' + P.etapas[e[0]] + '</b></span>').join('') + '</div>';
+
+  // ETA: camiones en tránsito, ordenados por hora estimada de llegada
+  const enRuta = P.viajes.filter(v => v.estado === 'En tránsito cargado').sort((a, b) => (a.eta || '9') < (b.eta || '9') ? -1 : 1);
+  $('etas').innerHTML = enRuta.length ? enRuta.map(v =>
+    '<div class="eta"><div class="h">' + (v.eta ? hhmm(v.eta) : '–') + '</div><div class="d"><b>' + esc(v.placa.split('/')[0]) + ' → ' + esc(v.destino || '—') + '</b>' +
+    '<span class="small">' + (v.retraso > 0 ? '⚠ ' + Math.round(v.retraso) + ' min sobre la hora ref.' : v.eta ? 'Dentro de la hora ref.' : 'Sin cálculo aún') + '</span></div></div>').join('')
+    : '<div class="small">No hay camiones en tránsito ahora.</div>';
+
+  // Esperas (control): barras horizontales en horas; rojo = alerta
+  const filas = [];
+  P.viajes.forEach(v => {
+    if (v.espera_carga != null) filas.push({ placa: v.placa, tipo: 'carga', h: v.espera_carga });
+    if (v.espera_desc != null) filas.push({ placa: v.placa, tipo: 'descarga', h: v.espera_desc });
+  });
+  filas.sort((a, b) => b.h - a.h);
+  const top = filas.slice(0, 10);
+  const maxH = Math.max(P.umbral * 1.3, ...top.map(f => f.h), 1);
+  $('esperas').innerHTML = top.length ? top.map(f => {
+    const col = f.h >= P.umbral ? css('--crit') : '#2a78d6';
+    return '<div class="r"><span class="nm" title="' + esc(f.placa) + '"><b>' + esc(f.placa.split('/')[0]) + '</b><span class="small">esp. ' + f.tipo + '</span></span>' +
+      '<div class="tr"><div class="fl" style="width:' + (f.h / maxH * 100) + '%;background:' + col + '"></div><div class="lim" style="left:' + (P.umbral / maxH * 100) + '%"></div></div>' +
+      '<span class="val">' + fx(f.h) + (f.h >= P.umbral ? ' ⚠' : '') + '</span></div>';
+  }).join('') : '<div class="small">Todavía no hay esperas registradas hoy.</div>';
+  $('limlbl').textContent = top.length ? 'Línea punteada: umbral de alerta (' + P.umbral + ' h). ⚠ = igual o mayor al umbral.' : '';
+
+  pintarLista();
+}
+
+
+
+// ── Disponibilidad de unidades (libres y por liberarse) ──
+const hmD = iso => iso ? new Date(iso).toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'America/Lima' }) : '';
+function haceD(iso) { if (!iso) return ''; const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : ''); }
+function lineaLibre(u) {
+  const dnd = u.donde ? 'en ' + u.donde + (u.libre_desde ? ', libre hace ' + haceD(u.libre_desde) : '') : 'sin viaje asignado';
+  let pl = '';
+  if (u.eta_planta) pl = new Date(u.eta_planta) <= new Date() ? ' · ya debería estar en ' + u.planta : ' · llega a ' + u.planta + ' ~' + hmD(u.eta_planta);
+  else if (u.sin_ruta) pl = ' · llegada a planta sin dato (falta la ruta)';
+  const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora + ' a ' + u.proximo.destino : '';
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + dnd + pl + px;
+}
+function lineaPorLiberar(u) {
+  const base = u.estado === 'En tránsito cargado' ? 'llega a ' + u.destino + (u.llega_destino ? ' ~' + hmD(u.llega_destino) : '') : 'descargando en ' + u.destino;
+  const pl = u.eta_planta ? ' · llega a ' + u.planta + ' ~' + hmD(u.eta_planta) : (u.sin_ruta ? ' · llegada a planta sin dato (falta la ruta)' : '');
+  const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora : '';
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + base + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px;
+}
+function textoDisp(X) {
+  const f = new Date(X.generado);
+  const dia = f.toLocaleDateString('es-PE', { weekday:'short', day:'2-digit', month:'2-digit', timeZone:'America/Lima' });
+  let t = '🚛 DISPONIBILIDAD ' + hmD(X.generado) + ' · ' + dia + '\n\nLIBRES (' + X.libres.length + ')\n';
+  t += X.libres.length ? X.libres.map(u => '• ' + lineaLibre(u)).join('\n') : '• Ninguna por ahora';
+  t += '\n\nPOR LIBERARSE (' + X.por_liberar.length + ')\n';
+  t += X.por_liberar.length ? X.por_liberar.map(u => '• ' + lineaPorLiberar(u)).join('\n') : '• Ninguna por ahora';
+  return t + '\n\nHoras estimadas por ruta (sin GPS).';
+}
+function pintarDisp() {
+  const X = (typeof D !== 'undefined' && D && D.disponibilidad) || (typeof datos !== 'undefined' && datos && datos.disponibilidad);
+  const card = $('dispCard'); if (!card) return;
+  if (!X || X.error) { $('dispLibres').innerHTML = '<div class="small">No se pudo calcular la disponibilidad' + (X && X.error ? ' (' + esc(X.error) + ')' : '') + '.</div>'; $('dispPorLib').innerHTML = ''; return; }
+  const fila = (txt, cls) => '<div class="dispf ' + cls + '">' + esc(txt) + '</div>';
+  $('dispLibres').innerHTML = '<div class="small" style="font-weight:700;margin:6px 0 2px">Libres (' + X.libres.length + ')</div>' + (X.libres.length ? X.libres.map(u => fila(lineaLibre(u), 'lib')).join('') : '<div class="small">Ninguna por ahora.</div>');
+  $('dispPorLib').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">Por liberarse (' + X.por_liberar.length + ')</div>' + (X.por_liberar.length ? X.por_liberar.map(u => fila(lineaPorLiberar(u), 'por')).join('') : '<div class="small">Ninguna por ahora.</div>');
+  $('dispNota').textContent = 'Descarga estándar ' + X.descarga_h + ' h y regreso por la misma ruta. Es un estimado, sin GPS.';
+  $('btnWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(textoDisp(X)), '_blank');
+  $('btnCopiar').onclick = async () => { try { await navigator.clipboard.writeText(textoDisp(X)); $('btnCopiar').textContent = '¡Copiado!'; } catch (e) { $('btnCopiar').textContent = 'No se pudo copiar'; } setTimeout(() => $('btnCopiar').textContent = 'Copiar texto', 2000); };
+}
+
+function pintarLista() {
+  pintarDisp();
+  const P = datos;
+  const estaTerm = v => v.estado === 'Terminado';
+  const conAlerta = v => v.nivel === 'alerta' || v.nivel === 'supero' || v.nivel === 'incidencia' || (v.retraso != null && v.retraso > 0);
+  const pasa = v => filtro === 'todos' ? true
+    : filtro === 'activos' ? !estaTerm(v)
+    : filtro === 'alerta' ? !estaTerm(v) && conAlerta(v)
+    : estaTerm(v);
+  // Programación: ordenada por hora de referencia; los terminados al final de su hora, atenuados
+  const lista = P.viajes.filter(pasa).sort((a, b) => String(a.cita || '99:99') < String(b.cita || '99:99') ? -1 : String(a.cita || '99:99') > String(b.cita || '99:99') ? 1 : 0);
+  const nT = P.viajes.filter(estaTerm).length;
+  $('tabs').children[3].textContent = 'Terminados (' + nT + ')';
+  const PX = P.proximos_lista || [];
+  const dsem = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const dd = iso => { const d = new Date(iso + 'T12:00:00'); return dsem[d.getDay()] + ' ' + ddmmY(iso); };
+  let ult = '';
+  $('proxT').textContent = 'Próximos días' + (PX.length ? ' (' + PX.length + ')' : '');
+  $('prox').innerHTML = PX.length ? PX.map(v => {
+    const cab = v.dia !== ult ? '<div class="small" style="margin:10px 2px 4px;font-weight:700">' + dd(v.dia) + '</div>' : ''; ult = v.dia;
+    return cab + '<div class="v"><div class="top"><span class="pl">' + (v.cita ? esc(v.cita) + ' · ' : '') + esc(v.placa) + '</span><span class="tag">Programado</span></div>' +
+      '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino || '—') + '</div>' +
+      '<div class="det">' + esc(v.chofer) + (v.carga ? ' · ' + esc(v.carga) : '') + '</div></div>';
+  }).join('') : '<div class="card small">No hay viajes programados para próximos días.</div>';
+  $('viajes').innerHTML = lista.length ? lista.map(v => {
+    const etiqueta = v.nivel === 'alerta' ? '<span class="tag crit">⚠ ' + esc(v.alerta.replace('ALERTA: ', '')) + '</span>'
+      : v.nivel === 'supero' ? '<span class="tag warn">⚠ ' + esc(v.alerta) + '</span>'
+      : v.nivel === 'incidencia' ? '<span class="tag warn">⚠ Incidencia reportada</span>'
+      : v.retraso > 0 ? '<span class="tag warn">Retraso previsto ' + Math.round(v.retraso) + ' min</span>' : '';
+    const eta = v.eta && v.estado === 'En tránsito cargado' ? ' · ETA <b>' + hhmm(v.eta) + '</b>' : '';
+    const cierre = estaTerm(v) && v.cierre ? ' · terminó ' + hhmm(v.cierre) + ' ✓' : '';
+    return '<div class="v ' + nivelClase(v) + '"><div class="top"><span class="pl">' + (v.cita ? esc(v.cita) + ' · ' : '') + esc(v.placa) + '</span><span class="tag">' + esc(v.estado) + '</span></div>' +
+      '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino || '—') + '</div>' +
+      '<div class="det">' + esc(v.empresa) + (v.chofer_vis ? ' · ' + esc(v.chofer_vis) : '') + (v.carga ? ' · ' + esc(v.carga) : '') + '</div>' +
+      '<div class="det">' + 'Hora ref. ' + esc(v.cita || '—') + ' h' + (v.espera_carga != null ? ' · Esp. carga ' + fx(v.espera_carga) + ' h' : '') + (v.espera_desc != null ? ' · Esp. descarga ' + fx(v.espera_desc) + ' h' : '') + eta + cierre + '</div>' +
+      (etiqueta ? '<div style="margin-top:6px">' + etiqueta + '</div>' : '') + '</div>';
+  }).join('') : '<div class="card small">No hay viajes en esta vista.</div>';
+}
+
+$('verClave').onclick = () => { const i = $('clave'), v = i.type === 'password'; i.type = v ? 'text' : 'password'; $('verClave').textContent = v ? 'Ocultar' : 'Ver'; $('verClave').setAttribute('aria-label', v ? 'Ocultar clave' : 'Mostrar clave'); };
+$('vista').onclick = e => { const b = e.target.closest('button'); if (!b) return; vista = b.dataset.vv; LS.set('vista', vista); aplicarVista(); };
+$('per').onclick = e => { const b = e.target.closest('button'); if (!b || !datos) return; per = b.dataset.p; pintarProduccion(); };
+$('btnEntrar').onclick = () => entrar($('clave').value.trim());
+$('clave').addEventListener('keydown', e => { if (e.key === 'Enter') entrar($('clave').value.trim()); });
+$('btnAct').onclick = () => cargar(false);
+$('btnSalir').onclick = () => { clave = ''; LS.set('clave', ''); datos = null; clearInterval(timer); timer = null; mostrarLogin(''); $('clave').value = ''; };
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  filtro = b.dataset.f; [...$('tabs').children].forEach(x => x.classList.toggle('on', x === b)); pintarLista();
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && clave) cargar(false); });
+if (clave) cargar(true); else mostrarLogin('');
+</script>
+</body>
+</html>

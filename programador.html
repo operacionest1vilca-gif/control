@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Programación de viajes</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f4f6f8; --card:#fff; --ink:#14202b; --mut:#5b6b7a; --line:#d5dde5; --brand:#0b6bcb; --ok:#1a7f3c; --track:#e8edf2; --crit:#b3261e;
+          --okbg:#e6f4ea; --okt:#14532d; --warnbg:#fff4e0; --warnt:#7a4a00; --badbg:#fdeeed; --badt:#7a1a14; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#121212; --card:#1a1a19; --ink:#f0efec; --mut:#a7b0b8; --line:#33383d; --brand:#5aa2f0; --ok:#2e9c52; --track:#2a2d30; --crit:#f08a82;
+          --okbg:#17301b; --okt:#8fe08f; --warnbg:#3a2e12; --warnt:#f5cf6b; --badbg:#3a1f1d; --badt:#f1a3a3; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  header { background:var(--brand); color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px; }
+  header h1 { margin:0; font-size:17px; } header p { margin:1px 0 0; font-size:12px; opacity:.9; } header .grow { flex:1; }
+  header img { height:44px; max-width:128px; object-fit:contain; background:#fff; border-radius:6px; padding:3px; }
+  main { max-width:560px; margin:0 auto; padding:12px 16px 40px; }
+  .hidden { display:none !important; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:12px 0 5px; font-weight:600; }
+  label:first-child { margin-top:0; }
+  input, select { width:100%; font:inherit; font-size:17px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); }
+  input[type=password] { text-transform:none; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .send { width:100%; font:inherit; font-weight:700; font-size:18px; padding:15px; border:0; border-radius:12px; background:var(--ok); color:#fff; margin-top:16px; }
+  .send:disabled { opacity:.5; }
+  .sec { background:var(--card); color:var(--brand); border:1px solid var(--line); border-radius:12px; font:inherit; font-weight:600; padding:12px; width:100%; margin-top:10px; }
+  .small { font-size:13px; color:var(--mut); }
+  .msg { padding:11px 12px; border-radius:10px; margin-top:12px; font-size:15px; }
+  .msg.ok { background:var(--okbg); color:var(--okt); } .msg.warn { background:var(--warnbg); color:var(--warnt); } .msg.bad { background:var(--badbg); color:var(--badt); }
+  .tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .tabs button { flex:1; font:inherit; font-weight:700; padding:11px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+  .tabs button.on { background:var(--brand); border-color:var(--brand); color:#fff; }
+  .chips { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .chip { font-size:12px; background:var(--track); border-radius:99px; padding:3px 10px; }
+  .quick { display:flex; gap:8px; margin-top:6px; }
+  .quick button { font:inherit; font-size:13px; font-weight:600; padding:6px 12px; border-radius:99px; border:1px solid var(--line); background:var(--card); color:var(--brand); }
+  .v { border:1px solid var(--line); border-radius:12px; padding:11px 12px; margin-bottom:10px; background:var(--card); }
+  .v .top { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .v .pl { font-weight:800; }
+  .v .ruta { font-weight:600; margin:2px 0; }
+  .tag { font-size:12px; font-weight:700; padding:2px 9px; border-radius:99px; background:var(--track); }
+  .tag.curso { background:var(--warnbg); color:var(--warnt); } .tag.fin { background:var(--okbg); color:var(--okt); }
+  .acts { display:flex; gap:8px; margin-top:8px; }
+  .acts button { flex:1; font:inherit; font-weight:600; padding:9px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--brand); }
+  .acts { flex-wrap:wrap; } .acts button.est { flex-basis:100%; background:var(--brand); border-color:var(--brand); color:#fff; }
+  .acts button.del { color:var(--crit); }
+  .regf { border-top:1px solid var(--line); margin-top:10px; padding-top:10px; }
+  .regf .row2 { margin-top:0; } .regf label { margin-top:8px; }
+  h3 { margin:16px 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); }
+  .ghost { background:none; border:0; color:var(--brand); font:inherit; padding:8px 0; }
+
+  .pw { position:relative; } .pw input { padding-right:68px; } .pw .eye { position:absolute; right:4px; top:50%; transform:translateY(-50%); min-width:56px; height:44px; border:0; background:none; color:var(--brand); font:inherit; font-size:14px; font-weight:700; cursor:pointer; }
+  .dispf { padding:7px 0; border-top:1px solid var(--line); font-size:13px; line-height:1.35; } .dispf.lib { border-left:3px solid #1e9e5a; padding-left:8px; } .dispf.por { border-left:3px solid #d98a00; padding-left:8px; }
+  .dispb { display:flex; gap:8px; margin-top:10px; } .dispb button { flex:1; font:inherit; font-size:14px; font-weight:700; padding:11px 8px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); } .dispb #btnWa { background:#1e9e5a; border-color:#1e9e5a; color:#fff; }
+</style>
+</head>
+<body>
+<header>
+  <img src="logo.png" alt="" onerror="this.style.display='none'">
+  <div><h1>Programación de viajes</h1><p>Inversiones Vilca</p></div>
+  <div class="grow"></div>
+</header>
+
+<main>
+  <section id="login" class="card hidden">
+    <label for="clave">Clave de programación</label>
+    <div class="pw"><input id="clave" type="password" autocomplete="off" placeholder="Clave"><button id="verClave" class="eye" type="button" aria-label="Mostrar clave">Ver</button></div>
+    <button id="btnEntrar" class="send" type="button" style="background:var(--brand)">Entrar</button>
+    <div id="loginMsg"></div>
+  </section>
+
+  <div id="app" class="hidden">
+    <div class="tabs">
+      <button id="tabNuevo" class="on" type="button">Programar</button>
+      <button id="tabLista" type="button">Programados</button>
+    </div>
+
+    <!-- FORMULARIO -->
+    <div id="vistaForm">
+      <section class="card">
+        <div id="modoEdicion" class="msg warn hidden" style="margin:0 0 10px"></div>
+
+        <label for="placa">Placa</label>
+        <select id="placa"></select>
+        <div id="infoPlaca" class="chips"></div>
+
+        <div id="nuevaPlaca" class="hidden">
+          <label for="npPlaca">Placa nueva (tracto/carreta)</label>
+          <input id="npPlaca" type="text" autocapitalize="characters" placeholder="Ej. ABC123/DEF456" style="text-transform:uppercase">
+          <label for="npEmpresa">Empresa</label>
+          <input id="npEmpresa" type="text" autocapitalize="characters" style="text-transform:uppercase">
+          <label for="npChofer">Chofer</label>
+          <input id="npChofer" type="text" autocapitalize="characters" style="text-transform:uppercase">
+          <label for="npLic">Licencia (letra Q + DNI)</label>
+          <input id="npLic" type="text" autocapitalize="characters" placeholder="Q12345678" style="text-transform:uppercase">
+          <div class="small" style="margin-top:4px">El chofer ingresa a la página con ese DNI.</div>
+          <label for="npUnidad">Tipo de unidad</label>
+          <input id="npUnidad" type="text" placeholder="Ej. Cortinero doble nivel">
+        </div>
+
+        <label for="carga">Tipo de carga</label>
+        <select id="carga"></select>
+        <input id="cargaOtro" type="text" class="hidden" placeholder="Escribe el tipo de carga" style="margin-top:8px">
+
+        <div class="row2">
+          <div><label for="origen">Origen</label><select id="origen"></select></div>
+          <div><label for="destino">Destino</label><select id="destino"></select></div>
+        </div>
+
+        <div class="row2">
+          <div><label for="fecha">Fecha de cita (referencial)</label><input id="fecha" type="date"></div>
+          <div><label for="hora">Hora de cita (ref.)</label><input id="hora" type="time" step="300"></div>
+        </div>
+        <div class="quick"><button type="button" id="qHoy">Hoy</button><button type="button" id="qManana">Mañana</button></div>
+
+        <button id="btnGuardar" class="send" type="button">Programar viaje</button>
+        <button id="btnCancelarEdicion" class="sec hidden" type="button">Cancelar edición</button>
+        <div id="resultado"></div>
+      </section>
+    </div>
+
+    <!-- LISTA -->
+    <div id="vistaLista" class="hidden">
+      <button id="btnActualizar" class="sec" type="button" style="margin:0 0 12px">Actualizar</button>
+      <div id="msgLista"></div>
+      <section class="card" id="dispCard">
+        <h2>Disponibilidad de unidades</h2>
+        <div id="dispLibres"></div>
+        <div id="dispPorLib"></div>
+        <div id="dispNota" class="small" style="margin-top:8px"></div>
+        <div class="dispb"><button id="btnWa" type="button">Enviar por WhatsApp</button><button id="btnCopiar" type="button">Copiar texto</button></div>
+      </section>
+      <div id="lista"></div>
+    </div>
+
+    <button id="btnSalir" class="ghost" type="button">Cerrar sesión</button>
+    <div class="small" style="margin-top:6px">Versión 05/11 b · con "Descarga finalizada"</div>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script>
+const PLANTA_DEFECTO = 'PL-HUACHIPA';
+const ESTATUS = ['En espera de carga', 'Iniciando carga', 'Cargado, salgo', 'En tránsito cargado', 'Llegué al destino', 'En espera de descarga', 'Iniciando descarga', 'Descarga finalizada', 'Incidencia'];
+const SIGUIENTE = { '': ['En espera de carga'], 'En espera de carga': ['Iniciando carga'], 'Iniciando carga': ['Cargado, salgo'], 'Cargado, salgo': ['En tránsito cargado', 'Llegué al destino'],
+  'En tránsito cargado': ['Llegué al destino'], 'Llegué al destino': ['Iniciando descarga', 'En espera de descarga'], 'En espera de descarga': ['Iniciando descarga'], 'Iniciando descarga': ['Descarga finalizada'] };
+
+const $ = id => document.getElementById(id);
+const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+             set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const ddmm = iso => { const p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : ''; };
+const fechaLocal = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const ERRORES = {
+  clave: 'Clave incorrecta.', placa: 'Elige o escribe la placa.', origen: 'Elige un origen válido.', destino: 'Elige un destino válido.',
+  placa_en_curso: 'La placa y el chofer solo se cambian antes de que el chofer reporte. Cancela este viaje y programa otro.', origen_igual_destino: 'El origen y el destino no pueden ser el mismo punto.', cita: 'Revisa la fecha y la hora de la cita.',
+  licencia: 'Falta la licencia (Q + 8 dígitos del DNI). Sin ella el chofer no puede ingresar.', capacidad: 'No hay más espacio en la hoja de viajes. Archiva viajes antiguos.',
+  viaje_no_existe: 'Ese viaje ya no existe.', tiene_reportes: 'No se puede cancelar: el chofer ya reportó estatus en este viaje.',
+  en_curso: 'El viaje ya está en curso: solo se puede cambiar la cita y el tipo de carga.', terminado: 'El viaje ya terminó.', estatus: 'Estatus no válido.', hora_futura: 'La hora no puede ser futura.'
+};
+
+let clave = LS.get('clave', ''), D = null, editando = null;
+
+async function pedir(accion) {
+  try {
+    if (!accion) return await (await fetch(URL_SCRIPT + '?token=' + encodeURIComponent(TOKEN) + '&rol=programador&clave=' + encodeURIComponent(clave))).json();
+    const r = await fetch(URL_SCRIPT, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ token: TOKEN, rol:'programador', clave: clave }, accion)) });
+    return await r.json();
+  } catch (e) { return null; }
+}
+
+function mostrarLogin(msg) {
+  $('app').classList.add('hidden'); $('login').classList.remove('hidden');
+  $('loginMsg').innerHTML = msg ? '<div class="msg warn">' + esc(msg) + '</div>' : '';
+}
+
+async function cargar() {
+  const j = await pedir();
+  if (!j) { if (!D) mostrarLogin('Sin señal. Intenta de nuevo.'); return false; }
+  if (!j.ok) { clave = ''; LS.set('clave', ''); mostrarLogin(ERRORES[j.error] || ('Error: ' + (j.error || ''))); return false; }
+  LS.set('clave', clave); D = j;
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  llenarListas(); pintarLista();
+  return true;
+}
+
+function opt(v, t, sel) { return '<option value="' + esc(v) + '"' + (sel ? ' selected' : '') + '>' + esc(t) + '</option>'; }
+
+function llenarListas() {
+  const pSel = $('placa').value;
+  $('placa').innerHTML = opt('', '— Elige la placa —') + D.placas.map(p => opt(p.placa, p.placa + ' · ' + (p.chofer || ''))).join('') + opt('__nueva__', '➕ Placa nueva…');
+  if (pSel) $('placa').value = pSel;
+  const cSel = $('carga').value;
+  $('carga').innerHTML = opt('', '— Elige —') + D.tipos_carga.map(t => opt(t, t)).join('') + opt('__otro__', 'Otro…');
+  if (cSel) $('carga').value = cSel;
+  // Origen: plantas primero y luego los CD (también cargan: Oquendo, KLO...). Destino: todos los puntos.
+  const esPlanta = p => /planta/i.test(p.tipo);
+  const ordenados = D.puntos.filter(esPlanta).concat(D.puntos.filter(p => !esPlanta(p)));
+  const oSel = $('origen').value, dSel = $('destino').value;
+  $('origen').innerHTML = ordenados.map(p => opt(p.id, p.nombre)).join('');
+  $('origen').value = oSel || (D.puntos.some(p => p.id === PLANTA_DEFECTO) ? PLANTA_DEFECTO : $('origen').options[0].value);
+  $('destino').innerHTML = opt('', '— Elige el destino —') + ordenados.map(p => opt(p.id, p.nombre)).join('');
+  if (dSel) $('destino').value = dSel;
+  if (!$('fecha').value) $('fecha').value = D.hoy;
+  infoPlaca();
+}
+
+function infoPlaca() {
+  const v = $('placa').value, nueva = v === '__nueva__';
+  $('nuevaPlaca').classList.toggle('hidden', !nueva);
+  const p = D.placas.find(x => x.placa === v);
+  $('infoPlaca').innerHTML = p ? [p.empresa, p.chofer, p.tipo_unidad, p.licencia ? 'Lic. ' + p.licencia : 'SIN LICENCIA'].filter(Boolean).map(x => '<span class="chip">' + esc(x) + '</span>').join('') : '';
+}
+
+function tipoCarga() { return $('carga').value === '__otro__' ? $('cargaOtro').value.trim() : $('carga').value; }
+
+function mensaje(cls, txt) { $('resultado').innerHTML = '<div class="msg ' + cls + '">' + txt + '</div>'; }
+
+async function guardar() {
+  const nueva = $('placa').value === '__nueva__';
+  const d = editando
+    ? { accion:'editar', id: editando.id, tipo_carga: tipoCarga(), fecha: $('fecha').value, hora: $('hora').value }
+    : { accion:'crear', placa: nueva ? $('npPlaca').value.trim() : $('placa').value, tipo_carga: tipoCarga(), origen_id: $('origen').value, destino_id: $('destino').value, fecha: $('fecha').value, hora: $('hora').value };
+  if (editando && editando.estado === 'Programado') {
+    d.origen_id = $('origen').value; d.destino_id = $('destino').value;
+    if ($('placa').value === '__nueva__') return mensaje('bad', 'Para una placa nueva, primero agrégala en la hoja Flota o programa un viaje nuevo.');
+    if ($('placa').value && $('placa').value !== editando.placa) d.placa = $('placa').value;
+  }
+  if (!editando && nueva) { d.empresa = $('npEmpresa').value.trim(); d.chofer = $('npChofer').value.trim(); d.licencia = $('npLic').value.trim(); d.tipo_unidad = $('npUnidad').value.trim(); }
+  if (!d.placa && !editando) return mensaje('bad', ERRORES.placa);
+  if (!d.destino_id && !editando) return mensaje('bad', 'Elige el destino.');
+  if (!d.hora) return mensaje('bad', 'Falta la hora de cita (referencial).');
+  $('btnGuardar').disabled = true; const t0 = $('btnGuardar').textContent; $('btnGuardar').textContent = 'Guardando…';
+  const j = await pedir(d);
+  $('btnGuardar').disabled = false; $('btnGuardar').textContent = t0;
+  if (!j) return mensaje('warn', 'Sin señal. No se guardó; intenta de nuevo.');
+  if (!j.ok) return mensaje('bad', esc(ERRORES[j.error] || ('No se pudo guardar (' + j.error + ')')));
+  if (editando) { mensaje('ok', '✓ Viaje <b>' + esc(editando.id) + '</b> actualizado.'); salirEdicion(); await cargar(); mostrarTab('lista'); return; }
+  let txt = '✓ Viaje <b>' + esc(j.id) + '</b> programado: ' + esc(d.placa) + ' · ' + esc(ddmm(d.fecha)) + ' ' + esc(d.hora) + ' h.';
+  if (j.avisos && j.avisos.length) txt += '<br>⚠ ' + j.avisos.map(esc).join(' ');
+  mensaje(j.avisos && j.avisos.length ? 'warn' : 'ok', txt + '<br><span class="small">Se conservaron origen, destino y fecha para programar el siguiente: cambia la placa y la hora.</span>');
+  $('placa').value = ''; $('nuevaPlaca').classList.add('hidden'); $('hora').value = '';
+  ['npPlaca','npEmpresa','npChofer','npLic','npUnidad'].forEach(i => $(i).value = '');
+  await cargar();
+}
+
+function salirEdicion() {
+  editando = null; $('modoEdicion').classList.add('hidden'); $('btnCancelarEdicion').classList.add('hidden');
+  $('placa').disabled = false; $('origen').disabled = false; $('destino').disabled = false;
+  $('btnGuardar').textContent = 'Programar viaje';
+}
+
+function editar(id) {
+  const v = D.viajes.find(x => x.id === id); if (!v) return;
+  editando = v; mostrarTab('nuevo');
+  $('placa').value = v.placa; infoPlaca(); $('placa').disabled = v.estado !== 'Programado';   // la placa (y el chofer) solo se cambian si el chofer aún no reportó
+  const known = D.tipos_carga.includes(v.tipo_carga);
+  $('carga').value = known ? v.tipo_carga : (v.tipo_carga ? '__otro__' : ''); $('cargaOtro').classList.toggle('hidden', known || !v.tipo_carga); if (!known) $('cargaOtro').value = v.tipo_carga;
+  $('origen').value = v.origen_id; $('destino').value = v.destino_id;
+  const soloCita = v.estado !== 'Programado';
+  $('origen').disabled = soloCita; $('destino').disabled = soloCita;
+  $('fecha').value = v.dia; $('hora').value = v.hora;
+  $('modoEdicion').textContent = 'Editando el viaje ' + v.id + ' (' + v.placa + ')' + (soloCita ? ' · en curso: solo cita y tipo de carga' : '');
+  $('modoEdicion').classList.remove('hidden'); $('btnCancelarEdicion').classList.remove('hidden');
+  $('btnGuardar').textContent = 'Guardar cambios'; $('resultado').innerHTML = '';
+  window.scrollTo(0, 0);
+}
+
+
+// ── Disponibilidad de unidades (libres y por liberarse) ──
+const hmD = iso => iso ? new Date(iso).toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'America/Lima' }) : '';
+function haceD(iso) { if (!iso) return ''; const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : ''); }
+function lineaLibre(u) {
+  const dnd = u.donde ? 'en ' + u.donde + (u.libre_desde ? ', libre hace ' + haceD(u.libre_desde) : '') : 'sin viaje asignado';
+  let pl = '';
+  if (u.eta_planta) pl = new Date(u.eta_planta) <= new Date() ? ' · ya debería estar en ' + u.planta : ' · llega a ' + u.planta + ' ~' + hmD(u.eta_planta);
+  else if (u.sin_ruta) pl = ' · llegada a planta sin dato (falta la ruta)';
+  const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora + ' a ' + u.proximo.destino : '';
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + dnd + pl + px;
+}
+function lineaPorLiberar(u) {
+  const base = u.estado === 'En tránsito cargado' ? 'llega a ' + u.destino + (u.llega_destino ? ' ~' + hmD(u.llega_destino) : '') : 'descargando en ' + u.destino;
+  const pl = u.eta_planta ? ' · llega a ' + u.planta + ' ~' + hmD(u.eta_planta) : (u.sin_ruta ? ' · llegada a planta sin dato (falta la ruta)' : '');
+  const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora : '';
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + base + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px;
+}
+function textoDisp(X) {
+  const f = new Date(X.generado);
+  const dia = f.toLocaleDateString('es-PE', { weekday:'short', day:'2-digit', month:'2-digit', timeZone:'America/Lima' });
+  let t = '🚛 DISPONIBILIDAD ' + hmD(X.generado) + ' · ' + dia + '\n\nLIBRES (' + X.libres.length + ')\n';
+  t += X.libres.length ? X.libres.map(u => '• ' + lineaLibre(u)).join('\n') : '• Ninguna por ahora';
+  t += '\n\nPOR LIBERARSE (' + X.por_liberar.length + ')\n';
+  t += X.por_liberar.length ? X.por_liberar.map(u => '• ' + lineaPorLiberar(u)).join('\n') : '• Ninguna por ahora';
+  return t + '\n\nHoras estimadas por ruta (sin GPS).';
+}
+function pintarDisp() {
+  const X = (typeof D !== 'undefined' && D && D.disponibilidad) || (typeof datos !== 'undefined' && datos && datos.disponibilidad);
+  const card = $('dispCard'); if (!card) return;
+  if (!X || X.error) { $('dispLibres').innerHTML = '<div class="small">No se pudo calcular la disponibilidad' + (X && X.error ? ' (' + esc(X.error) + ')' : '') + '.</div>'; $('dispPorLib').innerHTML = ''; return; }
+  const fila = (txt, cls) => '<div class="dispf ' + cls + '">' + esc(txt) + '</div>';
+  $('dispLibres').innerHTML = '<div class="small" style="font-weight:700;margin:6px 0 2px">Libres (' + X.libres.length + ')</div>' + (X.libres.length ? X.libres.map(u => fila(lineaLibre(u), 'lib')).join('') : '<div class="small">Ninguna por ahora.</div>');
+  $('dispPorLib').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">Por liberarse (' + X.por_liberar.length + ')</div>' + (X.por_liberar.length ? X.por_liberar.map(u => fila(lineaPorLiberar(u), 'por')).join('') : '<div class="small">Ninguna por ahora.</div>');
+  $('dispNota').textContent = 'Descarga estándar ' + X.descarga_h + ' h y regreso por la misma ruta. Es un estimado, sin GPS.';
+  $('btnWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(textoDisp(X)), '_blank');
+  $('btnCopiar').onclick = async () => { try { await navigator.clipboard.writeText(textoDisp(X)); $('btnCopiar').textContent = '¡Copiado!'; } catch (e) { $('btnCopiar').textContent = 'No se pudo copiar'; } setTimeout(() => $('btnCopiar').textContent = 'Copiar texto', 2000); };
+}
+
+function pintarLista() {
+  pintarDisp();
+  const por = {};
+  D.viajes.forEach(v => { (por[v.dia] = por[v.dia] || []).push(v); });
+  const dias = Object.keys(por).sort();
+  $('lista').innerHTML = dias.length ? dias.map(dia =>
+    '<h3>' + (dia === D.hoy ? 'Hoy · ' : '') + esc(ddmm(dia)) + '</h3>' + por[dia].map(v =>
+      '<div class="v"><div class="top"><span class="pl">' + esc(v.placa) + '</span><span class="tag ' + (v.estado === 'En curso' ? 'curso' : v.estado === 'Terminado' ? 'fin' : '') + '">' + esc(v.estado) + '</span></div>' +
+      '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino) + '</div>' +
+      '<div class="small"><b>' + esc(v.id) + '</b> · ' + (v.hora ? esc(v.hora) + ' h' : 'sin hora') + ' · ' + esc(v.chofer) + (v.tipo_carga ? ' · ' + esc(v.tipo_carga) : '') + '</div>' +
+      (v.ultimo ? '<div class="small">Último estatus: <b>' + esc(v.ultimo) + '</b></div>' : '') +
+      (v.estado === 'Terminado' ? '' : '<div class="acts" data-id="' + esc(v.id) + '"><button class="est" type="button">Registrar estatus</button><button class="ed" type="button">Editar</button>' + (v.reportes ? '' : '<button class="del" type="button">Cancelar viaje</button>') + '</div>') + '</div>').join('')).join('')
+    : '<div class="card small">No hay viajes programados de hoy en adelante.</div>';
+  $('lista').querySelectorAll('.acts').forEach(a => {
+    const id = a.dataset.id;
+    a.querySelector('.ed').onclick = () => editar(id);
+    a.querySelector('.est').onclick = () => formEstatus(a, id);
+    const del = a.querySelector('.del');
+    if (del) del.onclick = () => {
+      a.innerHTML = '<span class="small" style="flex:1;align-self:center">¿Cancelar el viaje ' + esc(id) + '?</span><button class="del si" type="button">Sí, cancelar</button><button class="no" type="button">No</button>';
+      a.querySelector('.no').onclick = () => pintarLista();
+      a.querySelector('.si').onclick = async () => { const j = await pedir({ accion:'cancelar', id: id }); if (!j || !j.ok) { alert(j ? (ERRORES[j.error] || j.error) : 'Sin señal.'); } await cargar(); };
+    };
+  });
+}
+
+// El programador registra un estatus por el chofer (con la hora real en que ocurrió).
+function formEstatus(acts, id) {
+  const v = D.viajes.find(x => x.id === id); if (!v) return;
+  const sig = (SIGUIENTE[v.ultimo || ''] || [])[0];
+  const ahora = new Date(), hh = String(ahora.getHours()).padStart(2, '0') + ':' + String(ahora.getMinutes()).padStart(2, '0');
+  let f = acts.parentNode.querySelector('.regf');
+  if (f) { f.remove(); return; }
+  f = document.createElement('div'); f.className = 'regf';
+  f.innerHTML = '<label>Estatus</label><select class="rs">' + ESTATUS.map(e => opt(e, e + (e === sig ? ' (siguiente)' : ''), e === sig)).join('') + '</select>' +
+    '<div class="row2"><div><label>Fecha</label><input class="rf" type="date" value="' + esc(D.hoy) + '"></div><div><label>Hora en que ocurrió</label><input class="rh" type="time" value="' + hh + '"></div></div>' +
+    '<label>Nota (opcional)</label><input class="rn" type="text" placeholder="Ej. avisó por llamada">' +
+    '<button class="send rg" type="button" style="margin-top:12px">Guardar estatus</button><div class="rm"></div>';
+  acts.parentNode.appendChild(f);
+  f.querySelector('.rg').onclick = async () => {
+    const b = f.querySelector('.rg'); b.disabled = true;
+    const est = f.querySelector('.rs').value;
+    const j = await pedir({ accion:'estatus', id: id, estatus: est, fecha: f.querySelector('.rf').value, hora: f.querySelector('.rh').value, nota: f.querySelector('.rn').value.trim() });
+    b.disabled = false;
+    if (!j) { f.querySelector('.rm').innerHTML = '<div class="msg warn">Sin señal. No se guardó; intenta de nuevo.</div>'; return; }
+    if (!j.ok) { f.querySelector('.rm').innerHTML = '<div class="msg bad">' + esc(ERRORES[j.error] || ('No se pudo guardar (' + j.error + ')')) + '</div>'; return; }
+    await cargar();
+    $('msgLista').innerHTML = '<div class="msg ok">✓ Registrado en ' + esc(id) + ': <b>' + esc(est) + '</b> (' + esc(f.querySelector('.rh').value || hh) + ' h).</div>';
+  };
+}
+
+function mostrarTab(t) {
+  $('tabNuevo').classList.toggle('on', t === 'nuevo'); $('tabLista').classList.toggle('on', t === 'lista');
+  $('vistaForm').classList.toggle('hidden', t !== 'nuevo'); $('vistaLista').classList.toggle('hidden', t !== 'lista');
+}
+
+$('verClave').onclick = () => { const i = $('clave'), v = i.type === 'password'; i.type = v ? 'text' : 'password'; $('verClave').textContent = v ? 'Ocultar' : 'Ver'; $('verClave').setAttribute('aria-label', v ? 'Ocultar clave' : 'Mostrar clave'); };
+$('btnEntrar').onclick = () => { clave = $('clave').value.trim(); cargar(); };
+$('clave').addEventListener('keydown', e => { if (e.key === 'Enter') { clave = $('clave').value.trim(); cargar(); } });
+$('placa').onchange = infoPlaca;
+$('carga').onchange = () => $('cargaOtro').classList.toggle('hidden', $('carga').value !== '__otro__');
+$('qHoy').onclick = () => { $('fecha').value = D ? D.hoy : fechaLocal(new Date()); };
+$('qManana').onclick = () => { const d = new Date((D ? D.hoy : fechaLocal(new Date())) + 'T12:00:00'); d.setDate(d.getDate() + 1); $('fecha').value = fechaLocal(d); };
+$('btnGuardar').onclick = guardar;
+$('btnCancelarEdicion').onclick = () => { salirEdicion(); $('resultado').innerHTML = ''; $('placa').value = ''; infoPlaca(); };
+$('tabNuevo').onclick = () => mostrarTab('nuevo');
+$('tabLista').onclick = () => { mostrarTab('lista'); cargar(); };
+$('btnActualizar').onclick = cargar;
+$('btnSalir').onclick = () => { clave = ''; LS.set('clave', ''); D = null; mostrarLogin(''); $('clave').value = ''; };
+if (clave) cargar(); else mostrarLogin('');
+</script>
+</body>
+</html>

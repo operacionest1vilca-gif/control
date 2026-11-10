@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Estatus del chofer</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --ink:#14202b; --mut:#5b6b7a; --brand:#0b6bcb; --ok:#1a7f3c; --warn:#b36b00; --bad:#b3261e; --line:#d5dde5; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  header { background:var(--brand); color:#fff; padding:14px 16px; }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:2px 0 0; font-size:13px; opacity:.9; }
+  main { max-width:520px; margin:0 auto; padding:14px 16px 40px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; }
+  label { display:block; font-size:13px; color:var(--mut); margin-bottom:6px; }
+  select { width:100%; font:inherit; font-size:17px; padding:12px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
+  input[type=text], textarea { width:100%; font:inherit; padding:12px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); text-transform:uppercase; }
+  textarea { text-transform:none; min-height:70px; resize:vertical; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .st { font:inherit; font-weight:600; padding:16px 10px; min-height:68px; border-radius:12px; border:2px solid var(--line); background:#fff; color:var(--ink); text-align:center; }
+  .st.llegada { border-color:#9cc4ee; background:#eef6ff; }
+  .st.inc { border-color:#e3b0ac; background:#fdeeed; grid-column:1 / -1; }
+  .st.sel { outline:3px solid var(--brand); }
+  .st:disabled { opacity:.5; }
+  .send { width:100%; font:inherit; font-weight:700; font-size:18px; padding:16px; border:0; border-radius:12px; background:var(--ok); color:#fff; margin-top:10px; }
+  .send:disabled { background:#9aa7b2; }
+  .ghost { background:none; border:0; color:var(--brand); font:inherit; padding:8px 0; }
+  .msg { padding:12px; border-radius:10px; font-size:15px; margin-top:10px; }
+  .msg.ok { background:#e6f4ea; color:#14532d; }
+  .msg.warn { background:#fff4e0; color:#7a4a00; }
+  .msg.bad { background:#fdeeed; color:#7a1a14; }
+  .small { font-size:13px; color:var(--mut); }
+  .hidden { display:none; }
+  .rper { display:flex; gap:6px; margin:0 0 10px; } .rper button { flex:1; font:inherit; font-size:14px; font-weight:700; padding:10px 6px; border-radius:12px; border:1px solid var(--line); background:#fff; color:var(--ink); } .rper button.on { background:var(--brand); border-color:var(--brand); color:#fff; }
+  .rk { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; } .rk div { background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px; text-align:center; } .rk b { display:block; font-size:24px; line-height:1.1; } .rk span { font-size:12px; color:var(--mut); }
+  .rl { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-top:1px solid var(--line); font-size:14px; } .rl:first-child { border-top:0; } .rl small { color:var(--mut); display:block; }
+  .chip { display:inline-block; font-size:12px; padding:3px 8px; border-radius:99px; background:#e8eef4; color:var(--mut); }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+  /* Pantalla de entrada con logo */
+  #splash { position:fixed; inset:0; z-index:10; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; padding:24px; transition:opacity .4s; }
+  #splash.fuera { opacity:0; pointer-events:none; }
+  #splash img { max-width:min(80vw,360px); max-height:34vh; object-fit:contain; }
+  #splash .marca { width:92px; height:92px; border-radius:22px; background:var(--brand); color:#fff; display:none; align-items:center; justify-content:center; font-size:44px; font-weight:800; }
+  #splash h2 { margin:0; font-size:22px; color:var(--ink); }
+  #splash p { margin:0; color:var(--mut); }
+  #splash .barra { width:120px; height:4px; border-radius:4px; background:var(--line); overflow:hidden; margin-top:10px; }
+  #splash .barra i { display:block; height:100%; width:0; background:var(--brand); animation:cargar 1.6s linear forwards; }
+  @keyframes cargar { to { width:100%; } }
+  header { display:flex; align-items:center; gap:12px; }
+  header img { height:46px; max-width:130px; object-fit:contain; background:#fff; border-radius:6px; padding:3px; }
+
+  /* Viajes */
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+  .viaje { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .viaje.terminado { opacity:.65; }
+  .viaje .ruta { font-weight:700; font-size:17px; margin:6px 0 2px; }
+  .viaje .det { font-size:14px; color:var(--mut); }
+  .badge { display:inline-block; font-size:12px; font-weight:700; padding:3px 9px; border-radius:99px; }
+  .badge.prog { background:#e8eef4; color:#35506b; }
+  .badge.curso { background:#fff4e0; color:#7a4a00; }
+  .badge.fin { background:#e6f4ea; color:#14532d; }
+  .btnviaje { width:100%; font:inherit; font-weight:700; font-size:17px; padding:13px; border:0; border-radius:10px; background:var(--brand); color:#fff; margin-top:10px; }
+  h2.sec { font-size:14px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); margin:18px 0 8px; }
+  .navbtn { font:inherit; font-size:14px; font-weight:600; padding:7px 12px; border-radius:99px; border:1px solid rgba(255,255,255,.7); background:transparent; color:#fff; }
+  .navbtn.dark { border-color:var(--line); color:var(--brand); background:#fff; }
+  header .grow { flex:1; }
+</style>
+</head>
+<body>
+
+<!-- Pantalla de entrada: se muestra ~1.6 s (o hasta tocarla). El logo es el archivo logo.png junto a este index.html. -->
+<div id="splash" role="button" aria-label="Entrar">
+  <img id="splashLogo" src="logo.png" alt="Logo" onerror="this.style.display='none'; document.getElementById('splashMarca').style.display='flex';">
+  <div id="splashMarca" class="marca">V</div>
+  <h2>Control de transporte</h2>
+  <p>Inversiones Vilca</p>
+  <div class="barra"><i></i></div>
+</div>
+
+<header>
+  <img id="headLogo" src="logo.png" alt="" onerror="this.style.display='none'">
+  <div>
+    <h1>Estatus del chofer</h1>
+    <p>Inversiones Vilca</p>
+  </div>
+  <div class="grow"></div>
+  <button id="btnInicio" class="navbtn hidden" type="button">Inicio</button>
+</header>
+
+<main>
+
+  <!-- Aviso de consentimiento (solo la primera vez) -->
+  <section id="consent" class="card hidden">
+    <strong>Uso de tu ubicación</strong>
+    <p class="small">Esta página toma tu ubicación <b>solo cuando tocas “Enviar”</b>, para registrar tu llegada y tu espera. No te sigue en segundo plano. Los datos se usan únicamente para el control de la operación de transporte (Ley 29733).</p>
+    <button id="btnAcepto" class="send" type="button">Entendido, continuar</button>
+  </section>
+
+  <div id="app" class="hidden">
+
+    <!-- Ingreso con DNI -->
+    <section id="dniCard" class="card hidden">
+      <label for="dni">Ingresa tu DNI</label>
+      <input id="dni" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" placeholder="8 dígitos">
+      <button id="btnDni" class="send" type="button" style="margin-top:12px">Ingresar</button>
+      <div id="dniMsg"></div>
+    </section>
+
+    <!-- INICIO: lista de viajes asignados -->
+    <div id="vistaInicio" class="hidden">
+      <div class="row" style="margin-bottom:4px">
+        <div id="saludo" style="font-weight:700;font-size:18px"></div>
+        <span id="pend" class="chip hidden"></span>
+      </div>
+      <div id="listaEstado" class="small"></div>
+      <button id="btnActualizar" class="btnviaje" type="button" style="background:#fff;color:var(--brand);border:1px solid var(--line);margin:8px 0 0">Actualizar mis viajes</button>
+      <button id="btnResumen" class="btnviaje" type="button" style="background:#fff;color:var(--brand);border:1px solid var(--line);margin:8px 0 0">Mi resumen (viajes, esperas y ETA)</button>
+      <div id="listaViajes"></div>
+      <button id="btnCambiar" class="ghost" type="button">No soy yo / cambiar DNI</button>
+    </div>
+
+    <!-- RESUMEN del chofer -->
+    <div id="vistaResumen" class="hidden">
+      <div class="topbar"><button id="btnVolverRes" class="navbtn dark" type="button">← Mis viajes</button></div>
+      <div style="font-weight:700;font-size:18px;margin:6px 0 10px">Mi resumen</div>
+      <div class="rper" id="resPer"><button data-p="hoy" class="on" type="button">Hoy</button><button data-p="semana" type="button">Semana</button><button data-p="mes" type="button">Mes</button></div>
+      <div id="resKpis" class="rk"></div>
+      <section class="card"><div style="font-weight:700;margin-bottom:6px">Viajes terminados</div><div id="resLista"></div></section>
+      <section class="card"><div style="font-weight:700;margin-bottom:6px">En curso (ETA)</div><div id="resCurso"></div></section>
+      <div id="resMsg" class="small"></div>
+    </div>
+
+    <!-- VIAJE: reporte de estatus -->
+    <div id="vistaViaje" class="hidden">
+      <div class="topbar">
+        <button id="btnVolver" class="navbtn dark" type="button">← Mis viajes</button>
+        <span id="pend2" class="chip hidden"></span>
+      </div>
+
+      <section class="card">
+        <div id="viajeCab"></div>
+      </section>
+
+      <section class="card">
+        <div id="espera" class="msg warn hidden" style="margin:0 0 12px"></div>
+        <label id="lblAhora">¿Qué estás haciendo ahora?</label>
+        <div id="ultimo" class="small" style="margin:-2px 0 8px"></div>
+        <div class="grid" id="botones"></div>
+
+        <div id="panelNota" class="hidden" style="margin-top:12px">
+          <label for="nota">Cuéntanos qué pasó (bloqueo, avería, demora)</label>
+          <textarea id="nota" maxlength="300"></textarea>
+        </div>
+
+        <button id="btnEnviar" class="send" type="button" disabled>Elige un estatus</button>
+        <div id="resultado"></div>
+
+        <div id="fin" class="hidden">
+          <div class="msg ok" style="margin:0 0 12px"><b>Descarga finalizada. Terminaste este viaje.</b><br>Revisa tu nueva programación en “Mis viajes”.</div>
+          <button id="btnVolver2" class="send" type="button">Ver mis viajes</button>
+        </div>
+      </section>
+
+      <p class="small">Si no hay señal, el reporte se guarda y se envía solo cuando vuelva.</p>
+    </div>
+
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script>
+// ───────────── CONFIGURACIÓN (completar antes del piloto) ─────────────
+
+// Los nombres deben coincidir con CONFIG.ESTATUS_VALIDOS de Code.gs y con las fórmulas de Control.
+const ESTATUS = [
+  { t:'En espera de carga',       cls:'llegada' },
+  { t:'Iniciando carga' },
+  { t:'Cargado, salgo' },
+  { t:'En tránsito cargado' },
+  { t:'Llegué al destino',       cls:'llegada' },
+  { t:'En espera de descarga' },
+  { t:'Iniciando descarga' },
+  { t:'Descarga finalizada' },
+  { t:'Incidencia',              cls:'inc' }
+];
+
+// Botones guiados: tras cada reporte solo se ofrecen los estatus que siguen (más Incidencia).
+const SIGUIENTE = {
+  '':                       ['En espera de carga'],
+  'En espera de carga':     ['En espera de carga', 'Iniciando carga'],   // se repite al acercarse a la planta
+  'Iniciando carga':        ['Cargado, salgo'],
+  'Cargado, salgo':         ['En tránsito cargado', 'Llegué al destino'],
+  'En tránsito cargado':    ['En tránsito cargado', 'Llegué al destino'],
+  'Llegué al destino':      ['Iniciando descarga', 'En espera de descarga'],
+  'En espera de descarga':  ['Llegué al destino', 'Iniciando descarga'],
+  'Iniciando descarga':     ['Descarga finalizada'],
+  'Descarga finalizada':    []     // fin del viaje: el chofer vuelve a "Mis viajes"
+};
+// Mientras el chofer espera, la página le muestra cuánto lleva (desde su llegada).
+const ESPERAS = { 'En espera de carga': 'carga', 'Llegué al destino': 'descarga', 'En espera de descarga': 'descarga' };
+const FIN_ESPERA = ['Iniciando carga', 'Iniciando descarga', 'Descarga finalizada', 'Cargado, salgo'];
+// Hasta esta hora (fin del 05-nov-2026, hora de Lima) "Iniciando descarga" aún cierra el viaje, igual que en Code.gs.
+const CIERRE_LEGADO_ISO = '2026-11-06T05:00:00.000Z';
+const UMBRAL_ESPERA_H = 2;   // mismo umbral de alerta que la hoja Config
+
+// ───────────── UTILIDADES ─────────────
+const $ = id => document.getElementById(id);
+const LS = {
+  get(k, def) { try { const v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch (e) { return def; } },
+  set(k, v)   { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const soloDigitos = v => String(v || '').replace(/\D/g, '');
+const ddmm = iso => { const p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : ''; };
+const hoyLocal = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+
+let perfil = LS.get('perfil', null);      // { dni, chofer }
+let viajes = (LS.get('viajes', null) || { lista: [] }).lista;   // lista de viajes (con sus eventos)
+let actualId = null;                       // viaje abierto
+let estatusSel = null, enviando = false;
+
+// ───────────── INICIO ─────────────
+function arrancar() {
+  if (!LS.get('consent', false)) {
+    $('consent').classList.remove('hidden');
+    $('btnAcepto').onclick = () => { LS.set('consent', true); $('consent').classList.add('hidden'); iniciar(); };
+  } else {
+    iniciar();
+  }
+}
+
+// Pantalla de entrada con logo: dura ~1.6 s o hasta que el chofer la toque.
+let splashCerrada = false;
+function cerrarSplash() {
+  if (splashCerrada) return;
+  splashCerrada = true;
+  $('splash').classList.add('fuera');
+  setTimeout(() => $('splash').remove(), 500);
+  arrancar();
+}
+$('splash').addEventListener('click', cerrarSplash);
+setTimeout(cerrarSplash, 1600);
+
+function iniciar() {
+  $('app').classList.remove('hidden');
+  $('btnDni').onclick = () => entrarConDni($('dni').value);
+  $('dni').addEventListener('keydown', e => { if (e.key === 'Enter') entrarConDni($('dni').value); });
+  $('btnCambiar').onclick = () => salir();
+  $('btnInicio').onclick = () => mostrarInicio();
+  $('btnVolver').onclick = () => mostrarInicio();
+  $('btnVolver2').onclick = () => mostrarInicio();
+  $('btnActualizar').onclick = () => refrescarViajes(true);
+  $('btnResumen').onclick = abrirResumen;
+  $('btnVolverRes').onclick = () => mostrarInicio(false);
+  $('resPer').onclick = e => { const b = e.target.closest('button'); if (!b) return; resPeriodo = b.dataset.p; pintarResumen(); };
+  $('btnEnviar').onclick = enviar;
+  window.addEventListener('online', vaciarCola);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && perfil) refrescarViajes(false); });
+  setInterval(pintarEspera, 30000);
+  pintarPendientes();
+  if (perfil) { mostrarInicio(); } else { mostrarDni(); }
+  vaciarCola();
+}
+
+function ocultarVistas() { ['dniCard', 'vistaInicio', 'vistaViaje', 'vistaResumen'].forEach(id => $(id).classList.add('hidden')); }
+
+// ───────────── INGRESO CON DNI ─────────────
+function mostrarDni(msg) {
+  ocultarVistas();
+  $('btnInicio').classList.add('hidden');
+  $('dniCard').classList.remove('hidden');
+  $('dniMsg').innerHTML = msg ? '<div class="msg warn">' + esc(msg) + '</div>' : '';
+  $('dni').value = '';
+}
+
+async function entrarConDni(txt) {
+  const dni = soloDigitos(txt);
+  if (dni.length !== 8) { $('dniMsg').innerHTML = '<div class="msg warn">El DNI debe tener 8 dígitos.</div>'; return; }
+  $('btnDni').disabled = true; $('btnDni').textContent = 'Verificando…';
+  let j = null;
+  try { j = await (await fetch(URL_SCRIPT + '?token=' + encodeURIComponent(TOKEN) + '&dni=' + dni + '&viajes=1')).json(); } catch (e) { /* sin señal */ }
+  $('btnDni').disabled = false; $('btnDni').textContent = 'Ingresar';
+  if (!j) { $('dniMsg').innerHTML = '<div class="msg warn">Sin señal. Intenta de nuevo cuando tengas conexión.</div>'; return; }
+  if (!j.ok) {
+    $('dniMsg').innerHTML = '<div class="msg bad">' + (j.error === 'dni_no_registrado'
+      ? 'Ese DNI no está registrado. Avisa a tu coordinador.' : 'No se pudo verificar el DNI (' + esc(j.error || 'error') + ').') + '</div>';
+    return;
+  }
+  perfil = { dni: dni, chofer: j.chofer };
+  LS.set('perfil', perfil);
+  guardarViajes(j.viajes);
+  mostrarInicio(false);
+}
+
+function salir(msg) {
+  perfil = null; viajes = []; actualId = null;
+  LS.set('perfil', null); LS.set('viajes', null);
+  mostrarDni(typeof msg === 'string' ? msg : '');
+}
+
+// ───────────── ESTADO DE CADA VIAJE (se reconstruye con sus eventos) ─────────────
+// Aplica un evento al estado. validacion: texto del script, o null si no hubo señal.
+function aplicar(est, estatus, ts, validacion) {
+  if (estatus === 'Incidencia') return est;                       // no cambia el flujo del viaje
+  const esLlegada = estatus === 'Llegué al origen' || estatus === 'Llegué al destino';
+  const noConf = esLlegada && validacion != null && validacion !== 'Válido';
+  // Llegada fuera de la geocerca: el chofer sigue "esperando" y puede repetir "Llegué" al acercarse.
+  est.ultimo = noConf ? (estatus === 'Llegué al origen' ? 'En espera de carga' : 'En tránsito cargado') : estatus;
+  est.ts = ts;
+  if (FIN_ESPERA.includes(estatus)) { est.esperaDesde = null; est.esperaTipo = null; }
+  else if (esLlegada && !noConf) { est.esperaDesde = ts; est.esperaTipo = ESPERAS[estatus]; }
+  else if (ESPERAS[estatus] && !est.esperaDesde) { est.esperaDesde = ts; est.esperaTipo = ESPERAS[estatus]; }
+  return est;
+}
+function estadoDe(v) {
+  const est = {};
+  (v.eventos || []).forEach(x => aplicar(est, x.e, x.t, x.v === '' ? null : x.v));
+  return est;
+}
+function estadoTexto(v) {
+  const ev = v.eventos || [];
+  if (ev.some(x => x.e === 'Descarga finalizada' || (x.e === 'Iniciando descarga' && x.t && x.t < CIERRE_LEGADO_ISO))) return 'Terminado';
+  return ev.length ? 'En curso' : 'Programado';
+}
+const viajeActual = () => viajes.find(v => v.id === actualId) || null;
+
+function guardarViajes(lista) {
+  // Agrega los reportes guardados en el celular que aún no llegaron al servidor.
+  const cola = LS.get('cola', []);
+  (lista || []).forEach(v => {
+    const ult = (v.eventos || []).reduce((m, x) => x.t > m ? x.t : m, '');
+    cola.filter(c => c.viajeId === v.id && c.horaEvento > ult)
+        .forEach(c => { v.eventos = v.eventos || []; v.eventos.push({ e: c.estatus, t: c.horaEvento, v: '' }); });
+  });
+  viajes = lista || [];
+  LS.set('viajes', { lista: viajes });
+}
+
+// ───────────── MI RESUMEN (solo los viajes del DNI ingresado) ─────────────
+let resPeriodo = 'hoy', resDatos = null;
+const fh = n => n == null ? '—' : String(n).replace('.', ',') + ' h';
+const hhmmR = iso => iso ? new Date(iso).toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'America/Lima' }) : '';
+function pintarResumen() {
+  [...$('resPer').children].forEach(b => b.classList.toggle('on', b.dataset.p === resPeriodo));
+  const R = resDatos;
+  if (!R) { $('resKpis').innerHTML = ''; $('resLista').innerHTML = ''; $('resCurso').innerHTML = ''; return; }
+  const P = R[resPeriodo];
+  $('resKpis').innerHTML = '<div><b>' + P.viajes + '</b><span>Viajes terminados</span></div>' +
+    '<div><b>' + fh(P.esp_carga_total) + '</b><span>Espera de carga' + (P.esp_carga_prom != null ? ' · prom. ' + fh(P.esp_carga_prom) : '') + '</span></div>' +
+    '<div><b>' + fh(P.esp_desc_total) + '</b><span>Espera de descarga' + (P.esp_desc_prom != null ? ' · prom. ' + fh(P.esp_desc_prom) : '') + '</span></div>' +
+    '<div><b>' + fh(Math.round((P.esp_carga_total + P.esp_desc_total) * 10) / 10) + '</b><span>Espera total</span></div>';
+  $('resLista').innerHTML = P.lista.length ? P.lista.map(c => '<div class="rl"><span>' + esc(c.ruta) + '<small>' + c.dia.split('-').reverse().slice(0, 2).join('/') + '</small></span><span style="text-align:right"><small>Carga ' + fh(c.ec) + '</small><small>Descarga ' + fh(c.ed) + '</small></span></div>').join('') : '<div class="small">Todavía no hay viajes terminados en este periodo.</div>';
+  $('resCurso').innerHTML = R.en_curso.length ? R.en_curso.map(c => '<div class="rl"><span>' + esc(c.placa || '') + ' · ' + esc(c.ruta) + '<small>' + esc(c.estado) + '</small></span><span style="text-align:right"><b>' + (c.eta ? hhmmR(c.eta) : '—') + '</b><small>' + (c.eta ? 'ETA al destino' : 'sin ETA aún') + '</small></span></div>').join('') : '<div class="small">No tienes viajes en curso.</div>';
+}
+async function abrirResumen() {
+  ocultarVistas(); $('vistaResumen').classList.remove('hidden'); $('btnInicio').classList.add('hidden');
+  resDatos = LS.get('resumen_' + (perfil && perfil.dni), null); pintarResumen();
+  $('resMsg').textContent = 'Actualizando…';
+  try {
+    const j = await (await fetch(URL_SCRIPT + '?token=' + encodeURIComponent(TOKEN) + '&dni=' + perfil.dni + '&resumen=1')).json();
+    if (j.ok) { resDatos = j.resumen; LS.set('resumen_' + perfil.dni, resDatos); pintarResumen(); $('resMsg').textContent = 'Actualizado ' + hhmmR(resDatos.generado) + '. Son los viajes de tu DNI.'; return; }
+    $('resMsg').textContent = 'No se pudo cargar tu resumen.';
+  } catch (e) { $('resMsg').textContent = resDatos ? 'Sin señal: se muestra tu último resumen guardado.' : 'Sin señal: no se pudo cargar tu resumen.'; }
+}
+
+async function refrescarViajes(manual) {
+  if (!perfil) return;
+  if (manual) $('listaEstado').textContent = 'Actualizando…';
+  try {
+    const j = await (await fetch(URL_SCRIPT + '?token=' + encodeURIComponent(TOKEN) + '&dni=' + perfil.dni + '&viajes=1')).json();
+    if (j.ok) {
+      perfil.chofer = j.chofer || perfil.chofer; LS.set('perfil', perfil);
+      guardarViajes(j.viajes);
+      if (!$('vistaInicio').classList.contains('hidden')) pintarInicio('');
+      else if (actualId && !viajeActual()) mostrarInicio(false);
+      else if (actualId) { armarBotones(); pintarCabecera(); }
+      return;
+    }
+    if (j.error === 'dni_no_registrado') { salir('Tu DNI ya no está asignado a ningún viaje. Consulta con tu coordinador.'); return; }
+  } catch (e) { /* sin señal */ }
+  if (!$('vistaInicio').classList.contains('hidden')) pintarInicio(manual ? 'Sin señal: se muestran tus últimos viajes guardados.' : '');
+}
+
+// ───────────── INICIO: LISTA DE VIAJES ─────────────
+function mostrarInicio(refrescar) {
+  actualId = null; estatusSel = null;
+  ocultarVistas();
+  $('vistaInicio').classList.remove('hidden');
+  $('btnInicio').classList.add('hidden');
+  pintarInicio('');
+  if (refrescar !== false) refrescarViajes(false);
+}
+
+function tarjetaViaje(v) {
+  const est = estadoTexto(v);
+  const badge = est === 'Terminado' ? '<span class="badge fin">Terminado ✓</span>' : est === 'En curso' ? '<span class="badge curso">En curso</span>' : '<span class="badge prog">Programado</span>';
+  let accion = '';
+  if (est !== 'Terminado') {
+    accion = (v.hoy || v.vencido)
+      ? '<button class="btnviaje" data-id="' + esc(v.id) + '" type="button">' + (est === 'En curso' ? 'Continuar este viaje' : 'Iniciar este viaje') + '</button>'
+      : '<div class="small" style="margin-top:8px">Se habilita el ' + esc(ddmm(v.dia)) + '.</div>';
+  }
+  return '<div class="viaje' + (est === 'Terminado' ? ' terminado' : '') + '">' +
+    '<div class="row"><span class="small"><b>' + esc(v.id) + '</b> · ' + esc(v.placa) + '</span>' + badge + '</div>' +
+    '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino || 'destino por confirmar') + '</div>' +
+    '<div class="det">' + (v.cita ? 'Hora ref. ' + (v.hoy ? '' : esc(ddmm(v.dia)) + ' ') + esc(v.cita) + ' h' : 'Hora ref. por confirmar') +
+      (v.tipo_carga ? ' · ' + esc(v.tipo_carga) : '') + (v.tipo_unidad ? ' · ' + esc(v.tipo_unidad) : '') + '</div>' +
+    accion + '</div>';
+}
+
+function pintarInicio(aviso) {
+  $('saludo').textContent = 'Hola, ' + ((perfil && perfil.chofer) || 'chofer');
+  $('listaEstado').textContent = aviso || '';
+  const pend = viajes.filter(v => v.vencido), hoy = viajes.filter(v => v.hoy && !v.vencido), prox = viajes.filter(v => !v.hoy && !v.vencido);
+  let h = pend.length ? '<h2 class="sec">Pendientes de días anteriores</h2>' + pend.map(tarjetaViaje).join('') : '';
+  h += '<h2 class="sec">Viajes de hoy</h2>' +
+    (hoy.length ? hoy.map(tarjetaViaje).join('') : '<div class="msg warn" style="margin-top:0">No tienes viajes programados para hoy. Consulta con tu coordinador.</div>');
+  if (prox.length) h += '<h2 class="sec">Próximos viajes</h2>' + prox.map(tarjetaViaje).join('');
+  $('listaViajes').innerHTML = h;
+  $('listaViajes').querySelectorAll('button[data-id]').forEach(b => { b.onclick = () => abrirViaje(b.dataset.id); });
+}
+
+// ───────────── VIAJE: BOTONES GUIADOS ─────────────
+function abrirViaje(id) {
+  actualId = id; estatusSel = null;
+  ocultarVistas();
+  $('vistaViaje').classList.remove('hidden');
+  $('btnInicio').classList.remove('hidden');
+  $('resultado').innerHTML = ''; $('nota').value = '';
+  pintarCabecera(); armarBotones(); validarBoton();
+}
+
+function pintarCabecera() {
+  const v = viajeActual();
+  if (!v) return;
+  $('viajeCab').innerHTML = '<div class="small"><b>' + esc(v.id) + '</b> · ' + esc(v.placa) + '</div>' +
+    '<div class="ruta" style="font-weight:700;font-size:18px;margin:4px 0 2px">' + esc(v.origen) + ' → ' + esc(v.destino || 'destino por confirmar') + '</div>' +
+    '<div class="det small">' + (v.cita ? 'Hora ref. ' + esc(v.cita) + ' h' : 'Hora ref. por confirmar') +
+    (v.tipo_carga ? ' · ' + esc(v.tipo_carga) : '') + (v.tipo_unidad ? ' · ' + esc(v.tipo_unidad) : '') + '</div>';
+}
+
+function opciones() {
+  const v = viajeActual();
+  if (!v || estadoTexto(v) === 'Terminado') return [];
+  const sig = SIGUIENTE[estadoDe(v).ultimo || ''] || SIGUIENTE[''];
+  return [...sig, 'Incidencia'];
+}
+
+function armarBotones() {
+  const v = viajeActual();
+  const cont = $('botones');
+  cont.innerHTML = '';
+  estatusSel = null;
+  opciones().forEach(t => {
+    const e = ESTATUS.find(x => x.t === t);
+    if (!e) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'st' + (e.cls ? ' ' + e.cls : '');
+    b.textContent = e.t;
+    b.onclick = () => {
+      estatusSel = e.t;
+      [...cont.children].forEach(x => x.classList.remove('sel'));
+      b.classList.add('sel');
+      $('panelNota').classList.toggle('hidden', e.t !== 'Incidencia');
+      $('resultado').innerHTML = '';
+      validarBoton();
+    };
+    cont.appendChild(b);
+  });
+  const fin = !!v && estadoTexto(v) === 'Terminado';
+  ['botones', 'btnEnviar', 'lblAhora'].forEach(id => $(id).classList.toggle('hidden', fin));
+  $('panelNota').classList.add('hidden');
+  $('fin').classList.toggle('hidden', !fin);
+  pintarUltimo();
+  pintarEspera();
+}
+
+function pintarUltimo() {
+  const v = viajeActual();
+  const est = v ? estadoDe(v) : {};
+  const el = $('ultimo');
+  if (!est.ultimo || !est.ts) { el.textContent = ''; return; }
+  const hora = new Date(est.ts).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+  el.textContent = 'Tu último reporte: ' + est.ultimo + ' (' + hora + ')';
+}
+
+// "Llevas X h Y min esperando": cuenta desde la llegada hasta que empiece la carga o la descarga.
+function pintarEspera() {
+  const v = viajeActual();
+  const est = v ? estadoDe(v) : {};
+  const el = $('espera');
+  if (!est.esperaDesde) { el.classList.add('hidden'); return; }
+  const min = Math.max(0, Math.floor((Date.now() - new Date(est.esperaDesde).getTime()) / 60000));
+  const h = Math.floor(min / 60), m = min % 60;
+  el.textContent = 'Llevas ' + (h ? h + ' h ' : '') + m + ' min esperando ' + (est.esperaTipo === 'descarga' ? 'la descarga' : 'la carga') + '.';
+  el.className = 'msg ' + (min >= UMBRAL_ESPERA_H * 60 ? 'bad' : 'warn');
+  el.style.margin = '0 0 12px';
+}
+
+function validarBoton() {
+  const ok = estatusSel && actualId && !enviando;
+  $('btnEnviar').disabled = !ok;
+  $('btnEnviar').textContent = estatusSel ? 'Enviar: ' + estatusSel : 'Elige un estatus';
+}
+
+// ───────────── UBICACIÓN ─────────────
+function obtenerUbicacion() {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, precision: pos.coords.accuracy }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+}
+
+// ───────────── ENVÍO Y COLA ─────────────
+async function enviar() {
+  const v = viajeActual();
+  if (enviando || !v) return;
+  enviando = true; validarBoton();
+  $('btnEnviar').textContent = 'Obteniendo ubicación…';
+
+  const ubic = await obtenerUbicacion();
+  const item = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2)),
+    token: TOKEN,
+    dni: perfil ? perfil.dni : '',
+    viajeId: v.id,
+    placa: v.placa,
+    estatus: estatusSel,
+    nota: estatusSel === 'Incidencia' ? $('nota').value.trim() : '',
+    horaEvento: new Date().toISOString(),
+    lat: ubic ? ubic.lat : null,
+    lon: ubic ? ubic.lon : null,
+    precision: ubic ? ubic.precision : null
+  };
+
+  const cola = LS.get('cola', []);
+  cola.push(item);
+  LS.set('cola', cola);
+
+  $('btnEnviar').textContent = 'Enviando…';
+  const resp = await intentarEnviar(item);
+  mostrarResultado(item, resp, !!ubic);
+  if (resp && resp.ok) quitarDeCola(item.id);
+  if (!resp || resp.ok) {                                   // sin señal también avanza el flujo; si el script rechazó, no
+    v.eventos = v.eventos || [];
+    v.eventos.push({ e: item.estatus, t: item.horaEvento, v: resp ? (resp.validacion || '') : '' });
+    LS.set('viajes', { lista: viajes });
+  }
+
+  enviando = false;
+ 
+  $('nota').value = '';
+  armarBotones();
+  validarBoton();
+  pintarPendientes();
+}
+
+async function intentarEnviar(item) {
+  try {
+    // text/plain evita la verificación previa (preflight) de CORS que Apps Script no responde.
+    const r = await fetch(URL_SCRIPT, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body: JSON.stringify(item) });
+    return await r.json();
+  } catch (e) { return null; }
+}
+
+function quitarDeCola(id) { LS.set('cola', LS.get('cola', []).filter(x => x.id !== id)); }
+
+async function vaciarCola() {
+  const cola = LS.get('cola', []);
+  for (const item of cola) {
+    const resp = await intentarEnviar(item);
+    if (resp && resp.ok) quitarDeCola(item.id); else break;
+  }
+  pintarPendientes();
+}
+
+function pintarPendientes() {
+  const n = LS.get('cola', []).length;
+  ['pend', 'pend2'].forEach(id => { const el = $(id); el.classList.toggle('hidden', n === 0); el.textContent = n + ' por enviar'; });
+}
+
+function mostrarResultado(item, resp, hayUbicacion) {
+  const r = $('resultado');
+  let cls = 'ok', txt;
+  if (!resp) {
+    cls = 'warn';
+    txt = 'Guardado en tu celular. Se enviará solo cuando haya señal.';
+  } else if (!resp.ok) {
+    cls = 'bad';
+    txt = resp.error === 'dni' ? 'Este viaje no está asignado a tu DNI. Vuelve a “Mis viajes” o avisa a tu coordinador.'
+        : resp.error === 'viaje' ? 'Este viaje ya no existe o fue cambiado. Vuelve a “Mis viajes” y actualiza.'
+        : 'No se pudo registrar (' + (resp.error || 'error') + '). Avisa a tu coordinador.';
+  } else if (resp.validacion === 'Válido') {
+    txt = 'Registrado. Tu llegada quedó confirmada.';
+  } else if (resp.validacion === 'En cola (fuera de zona)') {
+    cls = 'warn';
+    const km = (resp.distancia_m / 1000).toFixed(1);
+    txt = 'Registrado, pero estás a ' + km + ' km. Tu llegada se confirma cuando llegues a la zona; vuelve a tocar “Llegué” al estar cerca.';
+  } else if (resp.validacion === 'Sin ubicación') {
+    cls = 'warn';
+    txt = 'Registrado sin ubicación. Activa el GPS y el permiso de ubicación del navegador y repite el envío.';
+  } else {
+    txt = 'Registrado.';
+  }
+  if (resp && resp.ok && !hayUbicacion && resp.validacion !== 'Sin ubicación') {
+    txt += ' (Sin ubicación: revisa el permiso de ubicación.)';
+  }
+  r.innerHTML = '<div class="msg ' + cls + '">' + txt + '</div>';
+}
+</script>
+</body>
+</html>
