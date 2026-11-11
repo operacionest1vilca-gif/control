@@ -43,6 +43,7 @@
   .tag.curso { background:var(--warnbg); color:var(--warnt); } .tag.fin { background:var(--okbg); color:var(--okt); }
   .acts { display:flex; gap:8px; margin-top:8px; }
   .acts button { flex:1; font:inherit; font-weight:600; padding:9px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--brand); }
+  .acts2 { margin-top:8px; } .acts2 button { width:100%; font:inherit; font-weight:600; padding:9px; border-radius:10px; border:1px solid var(--line); background:var(--card,#fff); color:var(--crit); }
   .acts { flex-wrap:wrap; } .acts button.est { flex-basis:100%; background:var(--brand); border-color:var(--brand); color:#fff; }
   .acts button.del { color:var(--crit); }
   .regf { border-top:1px solid var(--line); margin-top:10px; padding-top:10px; }
@@ -318,12 +319,19 @@ function pintarLista() {
   const dias = Object.keys(por).sort();
   $('lista').innerHTML = dias.length ? dias.map(dia =>
     '<h3>' + (dia === D.hoy ? 'Hoy · ' : '') + esc(ddmm(dia)) + '</h3>' + por[dia].map(v =>
-      '<div class="v"><div class="top"><span class="pl">' + esc(v.placa) + '</span><span class="tag ' + (v.estado === 'En curso' ? 'curso' : v.estado === 'Terminado' ? 'fin' : '') + '">' + esc(v.estado) + '</span></div>' +
+      '<div class="v" data-vid="' + esc(v.id) + '"><div class="top"><span class="pl">' + esc(v.placa) + '</span><span class="tag ' + (v.estado === 'En curso' ? 'curso' : v.estado === 'Terminado' ? 'fin' : '') + '">' + esc(v.estado) + '</span></div>' +
       '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino) + '</div>' +
       '<div class="small"><b>' + esc(v.id) + '</b> · ' + (v.hora ? esc(v.hora) + ' h' : 'sin hora') + ' · ' + esc(v.chofer) + (v.tipo_carga ? ' · ' + esc(v.tipo_carga) : '') + '</div>' +
       (v.ultimo ? '<div class="small">Último estatus: <b>' + esc(v.ultimo) + '</b></div>' : '') +
-      (v.estado === 'Terminado' ? '' : '<div class="acts" data-id="' + esc(v.id) + '"><button class="est" type="button">Registrar estatus</button><button class="ed" type="button">Editar</button>' + (v.reportes ? '' : '<button class="del" type="button">Cancelar viaje</button>') + '</div>') + '</div>').join('')).join('')
+      (v.estado === 'Terminado' ? '<div class="acts2" data-id="' + esc(v.id) + '"><button class="cor2" type="button">Corregir (error del chofer)</button></div>' : '<div class="acts" data-id="' + esc(v.id) + '"><button class="est" type="button">Registrar estatus</button><button class="ed" type="button">Editar</button>' + (v.reportes ? '' : '<button class="del" type="button">Cancelar viaje</button>') + '</div>') + '</div>').join('')).join('')
     : '<div class="card small">No hay viajes programados de hoy en adelante.</div>';
+  $('lista').querySelectorAll('.acts2').forEach(a => {
+    a.querySelector('.cor2').onclick = () => {
+      const v = ((D && D.cerrados) || []).find(x => x.id === a.dataset.id);
+      if (!v) { alert('Este viaje ya no se puede corregir desde aquí (cerró hace más de 3 días).'); return; }
+      panelCorreccion(a.parentNode, v);
+    };
+  });
   $('lista').querySelectorAll('.acts').forEach(a => {
     const id = a.dataset.id;
     a.querySelector('.ed').onclick = () => editar(id);
@@ -349,27 +357,31 @@ function pintarCerrados() {
     : '<div class="card small">No hay viajes cerrados en los últimos 3 días.</div>';
   $('cerrados').querySelectorAll('.v').forEach(card => {
     const v = L.find(x => x.id === card.dataset.id);
-    card.querySelector('.cor').onclick = () => {
-      let f = card.querySelector('.regf');
-      if (f) { f.remove(); return; }
-      f = document.createElement('div'); f.className = 'regf';
-      f.innerHTML = '<label>Estatus enviados (toca "Anular" en el que está mal)</label>' +
-        v.eventos.map(x => '<div class="small" style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e3e8ef"><span><b>' + esc(x.e) + '</b> · ' + esc(hhmm(x.t)) + (x.v && x.v !== 'No aplica' ? ' · ' + esc(x.v) : '') + '</span><button class="del an" type="button" data-k="' + esc(x.k) + '" style="flex:none">Anular</button></div>').join('') +
-        '<label>Motivo (opcional)</label><input class="mo" type="text" placeholder="Ej. el chofer marcó descarga finalizada por error">' +
-        '<div class="rm"></div>';
-      card.appendChild(f);
-      f.querySelectorAll('.an').forEach(b => b.onclick = async () => {
-        if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro? Toca otra vez'; setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Anular'; }, 4000); return; }
-        b.disabled = true;
-        const j = await pedir({ accion:'anular_evento', id: v.id, k: b.dataset.k, nota: f.querySelector('.mo').value.trim() });
-        b.disabled = false;
-        if (!j) { f.querySelector('.rm').innerHTML = '<div class="msg warn">Sin señal. No se guardó; intenta de nuevo.</div>'; return; }
-        if (!j.ok) { f.querySelector('.rm').innerHTML = '<div class="msg bad">' + esc(ERRORES[j.error] || ('No se pudo anular (' + j.error + ')')) + '</div>'; return; }
-        await cargar();
-        $('msgLista').innerHTML = '<div class="msg ok">✓ Estatus anulado en ' + esc(v.id) + (j.reabierto ? '. El viaje quedó <b>reabierto</b>.' : '.') + '</div>';
-        window.scrollTo(0, 0);
-      });
-    };
+    card.querySelector('.cor').onclick = () => panelCorreccion(card, v);
+  });
+}
+
+// Panel con los estatus enviados de un viaje cerrado; "Anular" quita el que está mal y reabre el viaje.
+function panelCorreccion(card, v) {
+  const hhmm = iso => iso ? new Date(iso).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'America/Lima' }) : '';
+  let f = card.querySelector('.regf');
+  if (f) { f.remove(); return; }
+  f = document.createElement('div'); f.className = 'regf';
+  f.innerHTML = '<label>Estatus enviados (toca "Anular" en el que está mal)</label>' +
+    v.eventos.map(x => '<div class="small" style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e3e8ef"><span><b>' + esc(x.e) + '</b> · ' + esc(hhmm(x.t)) + (x.v && x.v !== 'No aplica' ? ' · ' + esc(x.v) : '') + '</span><button class="del an" type="button" data-k="' + esc(x.k) + '" style="flex:none">Anular</button></div>').join('') +
+    '<label>Motivo (opcional)</label><input class="mo" type="text" placeholder="Ej. el chofer marcó descarga finalizada por error">' +
+    '<div class="rm"></div>';
+  card.appendChild(f);
+  f.querySelectorAll('.an').forEach(b => b.onclick = async () => {
+    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro? Toca otra vez'; setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Anular'; }, 4000); return; }
+    b.disabled = true;
+    const j = await pedir({ accion:'anular_evento', id: v.id, k: b.dataset.k, nota: f.querySelector('.mo').value.trim() });
+    b.disabled = false;
+    if (!j) { f.querySelector('.rm').innerHTML = '<div class="msg warn">Sin señal. No se guardó; intenta de nuevo.</div>'; return; }
+    if (!j.ok) { f.querySelector('.rm').innerHTML = '<div class="msg bad">' + esc(ERRORES[j.error] || ('No se pudo anular (' + j.error + ')')) + '</div>'; return; }
+    await cargar();
+    $('msgLista').innerHTML = '<div class="msg ok">✓ Estatus anulado en ' + esc(v.id) + (j.reabierto ? '. El viaje quedó <b>reabierto</b>.' : '.') + '</div>';
+    window.scrollTo(0, 0);
   });
 }
 
