@@ -114,6 +114,7 @@
   .fin .pl { font-weight:800; } .fin .r2 { color:var(--mut); font-size:12px; grid-column:1 / -1; }
   .banner { background:#fdeeed; color:var(--crit-t); border-radius:12px; padding:10px 12px; margin-bottom:12px; font-weight:600; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .banner { background:#3a1f1d; } }
+.dispf.tll{background:#f1f3f6;border-left:3px solid #6b7686;padding-left:8px}
 </style>
 </head>
 <body>
@@ -174,6 +175,7 @@
         <div id="dispLibres"></div>
         <div id="dispPorLib"></div>
         <div id="dispNoDisp"></div>
+        <div id="dispTaller"></div>
         <div id="dispNota" class="small" style="margin-top:8px"></div>
         <div class="dispb"><button id="btnWa" type="button">Enviar por WhatsApp</button><button id="btnCopiar" type="button">Copiar texto</button></div>
       </section>
@@ -182,6 +184,11 @@
     <div id="vivo">
       <div id="mini" class="mini"></div>
 
+
+      <div id="atrasWrap" class="hidden">
+        <h2 class="ph" id="atrasT">Atrasados</h2>
+        <div id="atras"></div>
+      </div>
 
       <h2 class="ph">Programación de hoy</h2>
       <div class="tabs" id="tabs">
@@ -443,7 +450,11 @@ function textoDisp(X) {
   t += X.por_liberar.length ? X.por_liberar.map(u => '• ' + lineaPorLiberar(u)).join('\n') : '• Ninguna por ahora';
   t += '\n\nNO DISPONIBLES (' + (X.no_disponibles || []).length + ')\n';
   t += (X.no_disponibles || []).length ? X.no_disponibles.map(u => '• ' + lineaNoDisp(u)).join('\n') : '• Ninguna';
+  if ((X.taller || []).length) t += '\n\nEN TALLER (' + X.taller.length + ')\n' + X.taller.map(u => '• ' + lineaTaller(u)).join('\n');
   return t + '\n\nLibre = descarga finalizada. ETA a ' + (X.base || 'Huachipa') + ' estimada por ruta (sin GPS).';
+}
+function lineaTaller(u) {
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — EN TALLER' + (u.desde ? ' desde ' + hmD(u.desde) : '') + (u.motivo ? ' · ' + u.motivo : '') + ' · no disponible';
 }
 function pintarDisp() {
   const X = (typeof D !== 'undefined' && D && D.disponibilidad) || (typeof datos !== 'undefined' && datos && datos.disponibilidad);
@@ -453,7 +464,9 @@ function pintarDisp() {
   $('dispLibres').innerHTML = '<div class="small" style="font-weight:700;margin:6px 0 2px">Libres (' + X.libres.length + ')</div>' + (X.libres.length ? X.libres.map(u => fila(lineaLibre(u), 'lib')).join('') : '<div class="small">Ninguna por ahora.</div>');
   $('dispPorLib').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">Por liberarse (' + X.por_liberar.length + ')</div>' + (X.por_liberar.length ? X.por_liberar.map(u => fila(lineaPorLiberar(u), 'por')).join('') : '<div class="small">Ninguna por ahora.</div>');
   $('dispNoDisp').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">No disponibles (' + (X.no_disponibles || []).length + ')</div>' + ((X.no_disponibles || []).length ? X.no_disponibles.map(u => fila(lineaNoDisp(u), 'no')).join('') : '<div class="small">Ninguna.</div>');
-  $('dispNota').textContent = 'Libre = descarga finalizada y sin viaje pendiente hoy. No disponible = en planta cargando o con viaje de hoy por empezar: la hora es salida + ida + descarga + regreso a ' + (X.base || 'Huachipa') + ' (hoja Rutas). Descarga estándar ' + X.descarga_h + ' h. Estimado, sin GPS.';
+  const TA = X.taller || [];
+  $('dispTaller').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">En taller (' + TA.length + ')</div>' + (TA.length ? TA.map(u => fila(lineaTaller(u), 'tll')).join('') : '<div class="small">Ninguna.</div>');
+  $('dispNota').textContent = 'Libre = descarga finalizada y sin viaje pendiente hoy. No disponible = en planta cargando o con viaje de hoy por empezar: la hora es salida + ida + descarga + regreso a ' + (X.base || 'Huachipa') + ' (hoja Rutas). Tránsito cargado solo de 05:00 a 22:00; el regreso vacío es libre. Descarga estándar ' + X.descarga_h + ' h. Estimado, sin GPS.';
   $('btnWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(textoDisp(X)), '_blank');
   $('btnCopiar').onclick = async () => { try { await navigator.clipboard.writeText(textoDisp(X)); $('btnCopiar').textContent = '¡Copiado!'; } catch (e) { $('btnCopiar').textContent = 'No se pudo copiar'; } setTimeout(() => $('btnCopiar').textContent = 'Copiar texto', 2000); };
 }
@@ -471,6 +484,14 @@ function pintarLista() {
   const lista = P.viajes.filter(pasa).sort((a, b) => String(a.cita || '99:99') < String(b.cita || '99:99') ? -1 : String(a.cita || '99:99') > String(b.cita || '99:99') ? 1 : 0);
   const nT = P.viajes.filter(estaTerm).length;
   $('tabs').children[3].textContent = 'Terminados (' + nT + ')';
+  const AT = P.atrasados || [];
+  $('atrasWrap').classList.toggle('hidden', !AT.length);
+  $('atrasT').textContent = 'Atrasados sin iniciar (' + AT.length + ')';
+  $('atras').innerHTML = AT.map(v =>
+    '<div class="v"><div class="top"><span class="pl">' + (v.cita ? esc(v.cita) + ' · ' : '') + esc(v.placa) + '</span><span class="tag warn">Atrasado ' + v.dias_atraso + ' d · cita ' + ddmmY(v.dia) + '</span></div>' +
+    '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino || '—') + '</div>' +
+    '<div class="det">' + esc(v.chofer) + (v.carga ? ' · ' + esc(v.carga) : '') + '</div></div>').join('') +
+    (AT.length ? '<div class="small" style="margin:4px 2px 12px">Viajes de días anteriores que el chofer aún no inició (hasta 3 días). El programador debe cancelarlos o reasignarlos.</div>' : '');
   const PX = P.proximos_lista || [];
   const dsem = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
   const dd = iso => { const d = new Date(iso + 'T12:00:00'); return dsem[d.getDay()] + ' ' + ddmmY(iso); };
