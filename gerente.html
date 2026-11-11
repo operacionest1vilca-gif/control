@@ -263,10 +263,26 @@ function mostrarLogin(msg) {
   $('loginMsg').innerHTML = msg ? '<div class="msg">' + esc(msg) + '</div>' : '';
 }
 
+// Semáforo de esperas: verde por debajo del 1.er límite, ámbar desde el 1.º, rojo desde el 2.º (límites en la hoja Config).
+function semDe(h, tipo) {
+  if (h == null) return '';
+  const L = ((datos && datos.semaforo) || { carga: [2, 4], desc: [2, 4] })[tipo] || [2, 4];
+  return h >= L[1] ? 'rojo' : h >= L[0] ? 'ambar' : 'verde';
+}
+const peorSem = (a, b) => { const o = { '': 0, verde: 1, ambar: 2, rojo: 3 }; return o[a] >= o[b] ? a : b; };
+function semViaje(v) { return peorSem(semDe(v.espera_carga, 'carga'), semDe(v.espera_desc, 'desc')); }
+function chipEspera(nombre, h, tipo) {
+  const s = semDe(h, tipo); if (!s) return '';
+  const cls = s === 'rojo' ? 'crit' : s === 'ambar' ? 'warn' : 'good';
+  const txt = s === 'rojo' ? 'Excesiva' : s === 'ambar' ? 'Demora' : 'OK';
+  return '<span class="tag ' + cls + '">' + nombre + ' ' + fx(h) + ' h · ' + txt + '</span>';
+}
+
 function nivelClase(v) {
-  if (v.nivel === 'alerta') return 's-alerta';
+  const sem = semViaje(v);
+  if (v.nivel === 'alerta' || sem === 'rojo') return 's-alerta';
   if (v.nivel === 'supero' || v.nivel === 'incidencia') return 's-supero';
-  if (v.retraso != null && v.retraso > 0) return 's-retraso';
+  if ((v.retraso != null && v.retraso > 0) || sem === 'ambar') return 's-retraso';
   if (v.estado === 'Terminado') return 's-ok';
   return '';
 }
@@ -368,14 +384,19 @@ function pintarVivo() {
   });
   filas.sort((a, b) => b.h - a.h);
   const top = filas.slice(0, 10);
-  const maxH = Math.max(P.umbral * 1.3, ...top.map(f => f.h), 1);
+  const SG = P.semaforo || { carga: [2, 4], desc: [2, 4] };
+  const limDe = f => (SG[f.tipo === 'carga' ? 'carga' : 'desc'] || [2, 4]);
+  const maxH = Math.max(SG.carga[1] * 1.3, SG.desc[1] * 1.3, ...top.map(f => f.h), 1);
   $('esperas').innerHTML = top.length ? top.map(f => {
-    const col = f.h >= P.umbral ? css('--crit') : '#2a78d6';
+    const s = semDe(f.h, f.tipo === 'carga' ? 'carga' : 'desc');
+    const col = s === 'rojo' ? css('--crit') : s === 'ambar' ? css('--warn') : css('--good');
     return '<div class="r"><span class="nm" title="' + esc(f.placa) + '"><b>' + esc(f.placa.split('/')[0]) + '</b><span class="small">esp. ' + f.tipo + '</span></span>' +
-      '<div class="tr"><div class="fl" style="width:' + (f.h / maxH * 100) + '%;background:' + col + '"></div><div class="lim" style="left:' + (P.umbral / maxH * 100) + '%"></div></div>' +
-      '<span class="val">' + fx(f.h) + (f.h >= P.umbral ? ' ⚠' : '') + '</span></div>';
+      '<div class="tr"><div class="fl" style="width:' + (f.h / maxH * 100) + '%;background:' + col + '"></div><div class="lim" style="left:' + (limDe(f)[1] / maxH * 100) + '%"></div></div>' +
+      '<span class="val">' + fx(f.h) + (s === 'rojo' ? ' ⚠' : s === 'ambar' ? ' !' : '') + '</span></div>';
   }).join('') : '<div class="small">Todavía no hay esperas registradas hoy.</div>';
-  $('limlbl').textContent = top.length ? 'Línea punteada: umbral de alerta (' + P.umbral + ' h). ⚠ = igual o mayor al umbral.' : '';
+  $('limlbl').textContent = top.length
+    ? 'Semáforo: verde menos de ' + SG.carga[0] + ' h · ámbar (!) desde ' + SG.carga[0] + ' h · rojo (⚠) desde ' + SG.carga[1] + ' h' + (SG.desc[0] !== SG.carga[0] || SG.desc[1] !== SG.carga[1] ? ' (carga); descarga: ' + SG.desc[0] + ' h y ' + SG.desc[1] + ' h' : '') + '. Línea punteada: límite rojo.'
+    : '';
 
   pintarLista();
 }
@@ -436,7 +457,7 @@ function pintarLista() {
   pintarDisp();
   const P = datos;
   const estaTerm = v => v.estado === 'Terminado';
-  const conAlerta = v => v.nivel === 'alerta' || v.nivel === 'supero' || v.nivel === 'incidencia' || (v.retraso != null && v.retraso > 0);
+  const conAlerta = v => v.nivel === 'alerta' || v.nivel === 'supero' || v.nivel === 'incidencia' || (v.retraso != null && v.retraso > 0) || semViaje(v) === 'rojo' || semViaje(v) === 'ambar';
   const pasa = v => filtro === 'todos' ? true
     : filtro === 'activos' ? !estaTerm(v)
     : filtro === 'alerta' ? !estaTerm(v) && conAlerta(v)
@@ -466,7 +487,8 @@ function pintarLista() {
     return '<div class="v ' + nivelClase(v) + '"><div class="top"><span class="pl">' + (v.cita ? esc(v.cita) + ' · ' : '') + esc(v.placa) + '</span><span class="tag">' + esc(v.estado) + '</span></div>' +
       '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino || '—') + '</div>' +
       '<div class="det">' + esc(v.empresa) + (v.chofer_vis ? ' · ' + esc(v.chofer_vis) : '') + (v.carga ? ' · ' + esc(v.carga) : '') + '</div>' +
-      '<div class="det">' + 'Hora ref. ' + esc(v.cita || '—') + ' h' + (v.espera_carga != null ? ' · Esp. carga ' + fx(v.espera_carga) + ' h' : '') + (v.espera_desc != null ? ' · Esp. descarga ' + fx(v.espera_desc) + ' h' : '') + eta + cierre + '</div>' +
+      '<div class="det">' + 'Hora ref. ' + esc(v.cita || '—') + ' h' + eta + cierre + '</div>' +
+      ((v.espera_carga != null || v.espera_desc != null) ? '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">' + chipEspera('Espera carga', v.espera_carga, 'carga') + chipEspera('Espera descarga', v.espera_desc, 'desc') + '</div>' : '') +
       (etiqueta ? '<div style="margin-top:6px">' + etiqueta + '</div>' : '') + '</div>';
   }).join('') : '<div class="card small">No hay viajes en esta vista.</div>';
 }
