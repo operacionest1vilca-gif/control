@@ -52,7 +52,7 @@
   .ghost { background:none; border:0; color:var(--brand); font:inherit; padding:8px 0; }
 
   .pw { position:relative; } .pw input { padding-right:68px; } .pw .eye { position:absolute; right:4px; top:50%; transform:translateY(-50%); min-width:56px; height:44px; border:0; background:none; color:var(--brand); font:inherit; font-size:14px; font-weight:700; cursor:pointer; }
-  .dispf { padding:7px 0; border-top:1px solid var(--line); font-size:13px; line-height:1.35; } .dispf.lib { border-left:3px solid #1e9e5a; padding-left:8px; } .dispf.por { border-left:3px solid #d98a00; padding-left:8px; }
+  .dispf { padding:7px 0; border-top:1px solid var(--line); font-size:13px; line-height:1.35; } .dispf.lib { border-left:3px solid #1e9e5a; padding-left:8px; } .dispf.por { border-left:3px solid #d98a00; padding-left:8px; } .dispf.no { border-left:3px solid #8a94a6; padding-left:8px; }
   .dispb { display:flex; gap:8px; margin-top:10px; } .dispb button { flex:1; font:inherit; font-size:14px; font-weight:700; padding:11px 8px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); } .dispb #btnWa { background:#1e9e5a; border-color:#1e9e5a; color:#fff; }
 </style>
 </head>
@@ -75,6 +75,7 @@
     <div class="tabs">
       <button id="tabNuevo" class="on" type="button">Programar</button>
       <button id="tabLista" type="button">Programados</button>
+      <button id="tabFlota" type="button">Flota</button>
     </div>
 
     <!-- FORMULARIO -->
@@ -122,16 +123,21 @@
     </div>
 
     <!-- LISTA -->
-    <div id="vistaLista" class="hidden">
-      <button id="btnActualizar" class="sec" type="button" style="margin:0 0 12px">Actualizar</button>
-      <div id="msgLista"></div>
+    <div id="vistaFlota" class="hidden">
+      <button id="btnActFlota" class="sec" type="button" style="margin:0 0 12px">Actualizar</button>
       <section class="card" id="dispCard">
         <h2>Disponibilidad de unidades</h2>
         <div id="dispLibres"></div>
         <div id="dispPorLib"></div>
+        <div id="dispNoDisp"></div>
         <div id="dispNota" class="small" style="margin-top:8px"></div>
         <div class="dispb"><button id="btnWa" type="button">Enviar por WhatsApp</button><button id="btnCopiar" type="button">Copiar texto</button></div>
       </section>
+    </div>
+
+    <div id="vistaLista" class="hidden">
+      <button id="btnActualizar" class="sec" type="button" style="margin:0 0 12px">Actualizar</button>
+      <div id="msgLista"></div>
       <div id="lista"></div>
       <h3 style="margin-top:22px">Viajes cerrados (corregir un error del chofer)</h3>
       <div class="small" style="margin-bottom:8px">Últimos 3 días. Si el chofer marcó un estatus por error (por ejemplo, "Descarga finalizada" antes de tiempo), anúlalo: el viaje se reabre y el chofer o tú pueden registrar el correcto.</div>
@@ -291,6 +297,13 @@ function lineaPorLiberar(u) {
   const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora : '';
   return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + a + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px;
 }
+function lineaNoDisp(u) {
+  const base = u.planta || 'Huachipa';
+  const ruta = u.destino ? ' a ' + u.destino : '';
+  const cita = u.cita ? ' (cita ' + u.cita + ')' : '';
+  const pl = u.eta_planta ? ' · disponible en ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '') : ' · disponibilidad sin dato (falta la ruta)';
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — NO DISPONIBLE: ' + u.motivo.toLowerCase() + ruta + cita + pl;
+}
 function textoDisp(X) {
   const f = new Date(X.generado);
   const dia = f.toLocaleDateString('es-PE', { weekday:'short', day:'2-digit', month:'2-digit', timeZone:'America/Lima' });
@@ -298,6 +311,8 @@ function textoDisp(X) {
   t += X.libres.length ? X.libres.map(u => '• ' + lineaLibre(u)).join('\n') : '• Ninguna por ahora';
   t += '\n\nPOR LIBERARSE (' + X.por_liberar.length + ')\n';
   t += X.por_liberar.length ? X.por_liberar.map(u => '• ' + lineaPorLiberar(u)).join('\n') : '• Ninguna por ahora';
+  t += '\n\nNO DISPONIBLES (' + (X.no_disponibles || []).length + ')\n';
+  t += (X.no_disponibles || []).length ? X.no_disponibles.map(u => '• ' + lineaNoDisp(u)).join('\n') : '• Ninguna';
   return t + '\n\nLibre = descarga finalizada. ETA a ' + (X.base || 'Huachipa') + ' estimada por ruta (sin GPS).';
 }
 function pintarDisp() {
@@ -307,7 +322,8 @@ function pintarDisp() {
   const fila = (txt, cls) => '<div class="dispf ' + cls + '">' + esc(txt) + '</div>';
   $('dispLibres').innerHTML = '<div class="small" style="font-weight:700;margin:6px 0 2px">Libres (' + X.libres.length + ')</div>' + (X.libres.length ? X.libres.map(u => fila(lineaLibre(u), 'lib')).join('') : '<div class="small">Ninguna por ahora.</div>');
   $('dispPorLib').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">Por liberarse (' + X.por_liberar.length + ')</div>' + (X.por_liberar.length ? X.por_liberar.map(u => fila(lineaPorLiberar(u), 'por')).join('') : '<div class="small">Ninguna por ahora.</div>');
-  $('dispNota').textContent = 'Libre = descarga finalizada. ETA a ' + (X.base || 'Huachipa') + ' = fin de descarga + regreso por la ruta (hoja Rutas). Descarga estándar ' + X.descarga_h + ' h. Estimado, sin GPS.';
+  $('dispNoDisp').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">No disponibles (' + (X.no_disponibles || []).length + ')</div>' + ((X.no_disponibles || []).length ? X.no_disponibles.map(u => fila(lineaNoDisp(u), 'no')).join('') : '<div class="small">Ninguna.</div>');
+  $('dispNota').textContent = 'Libre = descarga finalizada y sin viaje pendiente hoy. No disponible = en planta cargando o con viaje de hoy por empezar: la hora es salida + ida + descarga + regreso a ' + (X.base || 'Huachipa') + ' (hoja Rutas). Descarga estándar ' + X.descarga_h + ' h. Estimado, sin GPS.';
   $('btnWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(textoDisp(X)), '_blank');
   $('btnCopiar').onclick = async () => { try { await navigator.clipboard.writeText(textoDisp(X)); $('btnCopiar').textContent = '¡Copiado!'; } catch (e) { $('btnCopiar').textContent = 'No se pudo copiar'; } setTimeout(() => $('btnCopiar').textContent = 'Copiar texto', 2000); };
 }
@@ -411,8 +427,8 @@ function formEstatus(acts, id) {
 }
 
 function mostrarTab(t) {
-  $('tabNuevo').classList.toggle('on', t === 'nuevo'); $('tabLista').classList.toggle('on', t === 'lista');
-  $('vistaForm').classList.toggle('hidden', t !== 'nuevo'); $('vistaLista').classList.toggle('hidden', t !== 'lista');
+  $('tabNuevo').classList.toggle('on', t === 'nuevo'); $('tabLista').classList.toggle('on', t === 'lista'); $('tabFlota').classList.toggle('on', t === 'flota');
+  $('vistaForm').classList.toggle('hidden', t !== 'nuevo'); $('vistaLista').classList.toggle('hidden', t !== 'lista'); $('vistaFlota').classList.toggle('hidden', t !== 'flota');
 }
 
 $('verClave').onclick = () => { const i = $('clave'), v = i.type === 'password'; i.type = v ? 'text' : 'password'; $('verClave').textContent = v ? 'Ocultar' : 'Ver'; $('verClave').setAttribute('aria-label', v ? 'Ocultar clave' : 'Mostrar clave'); };
@@ -427,6 +443,8 @@ $('btnCancelarEdicion').onclick = () => { salirEdicion(); $('resultado').innerHT
 $('tabNuevo').onclick = () => mostrarTab('nuevo');
 $('tabLista').onclick = () => { mostrarTab('lista'); cargar(); };
 $('btnActualizar').onclick = cargar;
+$('tabFlota').onclick = () => { mostrarTab('flota'); cargar(); };
+$('btnActFlota').onclick = cargar;
 $('btnSalir').onclick = () => { clave = ''; LS.set('clave', ''); D = null; mostrarLogin(''); $('clave').value = ''; };
 if (clave) cargar(); else mostrarLogin('');
 </script>
