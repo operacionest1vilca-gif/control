@@ -132,6 +132,9 @@
         <div class="dispb"><button id="btnWa" type="button">Enviar por WhatsApp</button><button id="btnCopiar" type="button">Copiar texto</button></div>
       </section>
       <div id="lista"></div>
+      <h3 style="margin-top:22px">Viajes cerrados (corregir un error del chofer)</h3>
+      <div class="small" style="margin-bottom:8px">Últimos 3 días. Si el chofer marcó un estatus por error (por ejemplo, "Descarga finalizada" antes de tiempo), anúlalo: el viaje se reabre y el chofer o tú pueden registrar el correcto.</div>
+      <div id="cerrados"></div>
     </div>
 
     <button id="btnSalir" class="ghost" type="button">Cerrar sesión</button>
@@ -157,7 +160,7 @@ const ERRORES = {
   placa_en_curso: 'La placa y el chofer solo se cambian antes de que el chofer reporte. Cancela este viaje y programa otro.', origen_igual_destino: 'El origen y el destino no pueden ser el mismo punto.', cita: 'Revisa la fecha y la hora de la cita.',
   licencia: 'Falta la licencia (Q + 8 dígitos del DNI). Sin ella el chofer no puede ingresar.', capacidad: 'No hay más espacio en la hoja de viajes. Archiva viajes antiguos.',
   viaje_no_existe: 'Ese viaje ya no existe.', tiene_reportes: 'No se puede cancelar: el chofer ya reportó estatus en este viaje.',
-  en_curso: 'El viaje ya está en curso: solo se puede cambiar la cita y el tipo de carga.', terminado: 'El viaje ya terminó.', estatus: 'Estatus no válido.', hora_futura: 'La hora no puede ser futura.'
+  en_curso: 'El viaje ya está en curso: solo se puede cambiar la cita y el tipo de carga.', terminado: 'El viaje ya terminó.', evento_no_existe: 'Ese estatus ya no existe (quizá ya se anuló). Actualiza la lista.', datos: 'Faltan datos.', estatus: 'Estatus no válido.', hora_futura: 'La hora no puede ser futura.'
 };
 
 let clave = LS.get('clave', ''), D = null, editando = null;
@@ -270,20 +273,22 @@ function editar(id) {
 
 // ── Disponibilidad de unidades (libres y por liberarse) ──
 const hmD = iso => iso ? new Date(iso).toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'America/Lima' }) : '';
-function haceD(iso) { if (!iso) return ''; const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : ''); }
+function haceD(iso) { if (!iso) return ''; const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000)); return (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : '')).trim(); }
 function lineaLibre(u) {
-  const dnd = u.donde ? 'en ' + u.donde + (u.libre_desde ? ', libre hace ' + haceD(u.libre_desde) : '') : 'sin viaje asignado';
+  const base = u.planta || 'Huachipa';
+  const d = u.donde ? 'descargó en ' + u.donde + (u.libre_desde ? ' a las ' + hmD(u.libre_desde) + ' (hace ' + haceD(u.libre_desde) + ')' : '') : 'sin viaje reciente, en ' + base;
   let pl = '';
-  if (u.eta_planta) pl = new Date(u.eta_planta) <= new Date() ? ' · ya debería estar en ' + u.planta : ' · llega a ' + u.planta + ' ~' + hmD(u.eta_planta);
-  else if (u.sin_ruta) pl = ' · llegada a planta sin dato (falta la ruta)';
+  if (u.eta_planta) pl = new Date(u.eta_planta) <= new Date() ? ' · ya debería estar en ' + base : ' · ETA a ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '');
+  else if (u.sin_ruta) pl = ' · ETA a ' + base + ' sin dato (falta la ruta)';
   const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora + ' a ' + u.proximo.destino : '';
-  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + dnd + pl + px;
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + d + pl + px;
 }
 function lineaPorLiberar(u) {
-  const base = u.estado === 'En tránsito cargado' ? 'llega a ' + u.destino + (u.llega_destino ? ' ~' + hmD(u.llega_destino) : '') : 'descargando en ' + u.destino;
-  const pl = u.eta_planta ? ' · llega a ' + u.planta + ' ~' + hmD(u.eta_planta) : (u.sin_ruta ? ' · llegada a planta sin dato (falta la ruta)' : '');
+  const base = u.planta || 'Huachipa';
+  const a = u.estado === 'En tránsito cargado' ? 'llega a ' + u.destino + (u.llega_destino ? ' ~' + hmD(u.llega_destino) : '') : 'descargando en ' + u.destino;
+  const pl = u.eta_planta ? ' · ETA a ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '') : (u.sin_ruta ? ' · ETA a ' + base + ' sin dato (falta la ruta)' : '');
   const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora : '';
-  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + base + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px;
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + a + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px;
 }
 function textoDisp(X) {
   const f = new Date(X.generado);
@@ -292,7 +297,7 @@ function textoDisp(X) {
   t += X.libres.length ? X.libres.map(u => '• ' + lineaLibre(u)).join('\n') : '• Ninguna por ahora';
   t += '\n\nPOR LIBERARSE (' + X.por_liberar.length + ')\n';
   t += X.por_liberar.length ? X.por_liberar.map(u => '• ' + lineaPorLiberar(u)).join('\n') : '• Ninguna por ahora';
-  return t + '\n\nHoras estimadas por ruta (sin GPS).';
+  return t + '\n\nLibre = descarga finalizada. ETA a ' + (X.base || 'Huachipa') + ' estimada por ruta (sin GPS).';
 }
 function pintarDisp() {
   const X = (typeof D !== 'undefined' && D && D.disponibilidad) || (typeof datos !== 'undefined' && datos && datos.disponibilidad);
@@ -301,13 +306,13 @@ function pintarDisp() {
   const fila = (txt, cls) => '<div class="dispf ' + cls + '">' + esc(txt) + '</div>';
   $('dispLibres').innerHTML = '<div class="small" style="font-weight:700;margin:6px 0 2px">Libres (' + X.libres.length + ')</div>' + (X.libres.length ? X.libres.map(u => fila(lineaLibre(u), 'lib')).join('') : '<div class="small">Ninguna por ahora.</div>');
   $('dispPorLib').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">Por liberarse (' + X.por_liberar.length + ')</div>' + (X.por_liberar.length ? X.por_liberar.map(u => fila(lineaPorLiberar(u), 'por')).join('') : '<div class="small">Ninguna por ahora.</div>');
-  $('dispNota').textContent = 'Descarga estándar ' + X.descarga_h + ' h y regreso por la misma ruta. Es un estimado, sin GPS.';
+  $('dispNota').textContent = 'Libre = descarga finalizada. ETA a ' + (X.base || 'Huachipa') + ' = fin de descarga + regreso por la ruta (hoja Rutas). Descarga estándar ' + X.descarga_h + ' h. Estimado, sin GPS.';
   $('btnWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(textoDisp(X)), '_blank');
   $('btnCopiar').onclick = async () => { try { await navigator.clipboard.writeText(textoDisp(X)); $('btnCopiar').textContent = '¡Copiado!'; } catch (e) { $('btnCopiar').textContent = 'No se pudo copiar'; } setTimeout(() => $('btnCopiar').textContent = 'Copiar texto', 2000); };
 }
 
 function pintarLista() {
-  pintarDisp();
+  pintarDisp(); pintarCerrados();
   const por = {};
   D.viajes.forEach(v => { (por[v.dia] = por[v.dia] || []).push(v); });
   const dias = Object.keys(por).sort();
@@ -328,6 +333,42 @@ function pintarLista() {
       a.innerHTML = '<span class="small" style="flex:1;align-self:center">¿Cancelar el viaje ' + esc(id) + '?</span><button class="del si" type="button">Sí, cancelar</button><button class="no" type="button">No</button>';
       a.querySelector('.no').onclick = () => pintarLista();
       a.querySelector('.si').onclick = async () => { const j = await pedir({ accion:'cancelar', id: id }); if (!j || !j.ok) { alert(j ? (ERRORES[j.error] || j.error) : 'Sin señal.'); } await cargar(); };
+    };
+  });
+}
+
+// ── Corregir viajes cerrados: anular un estatus enviado por error ──
+function pintarCerrados() {
+  const L = (D && D.cerrados) || [];
+  const hhmm = iso => iso ? new Date(iso).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'America/Lima' }) : '';
+  $('cerrados').innerHTML = L.length ? L.map(v =>
+    '<div class="v" data-id="' + esc(v.id) + '"><div class="top"><span class="pl">' + esc(v.placa) + '</span><span class="tag fin">Cerrado ' + esc(hhmm(v.cierre)) + '</span></div>' +
+    '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino) + '</div>' +
+    '<div class="small"><b>' + esc(v.id) + '</b> · ' + esc(v.chofer) + '</div>' +
+    '<div class="acts"><button class="cor" type="button">Corregir</button></div></div>').join('')
+    : '<div class="card small">No hay viajes cerrados en los últimos 3 días.</div>';
+  $('cerrados').querySelectorAll('.v').forEach(card => {
+    const v = L.find(x => x.id === card.dataset.id);
+    card.querySelector('.cor').onclick = () => {
+      let f = card.querySelector('.regf');
+      if (f) { f.remove(); return; }
+      f = document.createElement('div'); f.className = 'regf';
+      f.innerHTML = '<label>Estatus enviados (toca "Anular" en el que está mal)</label>' +
+        v.eventos.map(x => '<div class="small" style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e3e8ef"><span><b>' + esc(x.e) + '</b> · ' + esc(hhmm(x.t)) + (x.v && x.v !== 'No aplica' ? ' · ' + esc(x.v) : '') + '</span><button class="del an" type="button" data-k="' + esc(x.k) + '" style="flex:none">Anular</button></div>').join('') +
+        '<label>Motivo (opcional)</label><input class="mo" type="text" placeholder="Ej. el chofer marcó descarga finalizada por error">' +
+        '<div class="rm"></div>';
+      card.appendChild(f);
+      f.querySelectorAll('.an').forEach(b => b.onclick = async () => {
+        if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro? Toca otra vez'; setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Anular'; }, 4000); return; }
+        b.disabled = true;
+        const j = await pedir({ accion:'anular_evento', id: v.id, k: b.dataset.k, nota: f.querySelector('.mo').value.trim() });
+        b.disabled = false;
+        if (!j) { f.querySelector('.rm').innerHTML = '<div class="msg warn">Sin señal. No se guardó; intenta de nuevo.</div>'; return; }
+        if (!j.ok) { f.querySelector('.rm').innerHTML = '<div class="msg bad">' + esc(ERRORES[j.error] || ('No se pudo anular (' + j.error + ')')) + '</div>'; return; }
+        await cargar();
+        $('msgLista').innerHTML = '<div class="msg ok">✓ Estatus anulado en ' + esc(v.id) + (j.reabierto ? '. El viaje quedó <b>reabierto</b>.' : '.') + '</div>';
+        window.scrollTo(0, 0);
+      });
     };
   });
 }

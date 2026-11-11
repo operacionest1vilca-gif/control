@@ -378,20 +378,22 @@ function pintarVivo() {
 
 // ── Disponibilidad de unidades (libres y por liberarse) ──
 const hmD = iso => iso ? new Date(iso).toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'America/Lima' }) : '';
-function haceD(iso) { if (!iso) return ''; const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : ''); }
+function haceD(iso) { if (!iso) return ''; const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000)); return (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : '')).trim(); }
 function lineaLibre(u) {
-  const dnd = u.donde ? 'en ' + u.donde + (u.libre_desde ? ', libre hace ' + haceD(u.libre_desde) : '') : 'sin viaje asignado';
+  const base = u.planta || 'Huachipa';
+  const d = u.donde ? 'descargó en ' + u.donde + (u.libre_desde ? ' a las ' + hmD(u.libre_desde) + ' (hace ' + haceD(u.libre_desde) + ')' : '') : 'sin viaje reciente, en ' + base;
   let pl = '';
-  if (u.eta_planta) pl = new Date(u.eta_planta) <= new Date() ? ' · ya debería estar en ' + u.planta : ' · llega a ' + u.planta + ' ~' + hmD(u.eta_planta);
-  else if (u.sin_ruta) pl = ' · llegada a planta sin dato (falta la ruta)';
+  if (u.eta_planta) pl = new Date(u.eta_planta) <= new Date() ? ' · ya debería estar en ' + base : ' · ETA a ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '');
+  else if (u.sin_ruta) pl = ' · ETA a ' + base + ' sin dato (falta la ruta)';
   const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora + ' a ' + u.proximo.destino : '';
-  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + dnd + pl + px;
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + d + pl + px;
 }
 function lineaPorLiberar(u) {
-  const base = u.estado === 'En tránsito cargado' ? 'llega a ' + u.destino + (u.llega_destino ? ' ~' + hmD(u.llega_destino) : '') : 'descargando en ' + u.destino;
-  const pl = u.eta_planta ? ' · llega a ' + u.planta + ' ~' + hmD(u.eta_planta) : (u.sin_ruta ? ' · llegada a planta sin dato (falta la ruta)' : '');
+  const base = u.planta || 'Huachipa';
+  const a = u.estado === 'En tránsito cargado' ? 'llega a ' + u.destino + (u.llega_destino ? ' ~' + hmD(u.llega_destino) : '') : 'descargando en ' + u.destino;
+  const pl = u.eta_planta ? ' · ETA a ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '') : (u.sin_ruta ? ' · ETA a ' + base + ' sin dato (falta la ruta)' : '');
   const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora : '';
-  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + base + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px;
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + a + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px;
 }
 function textoDisp(X) {
   const f = new Date(X.generado);
@@ -400,7 +402,7 @@ function textoDisp(X) {
   t += X.libres.length ? X.libres.map(u => '• ' + lineaLibre(u)).join('\n') : '• Ninguna por ahora';
   t += '\n\nPOR LIBERARSE (' + X.por_liberar.length + ')\n';
   t += X.por_liberar.length ? X.por_liberar.map(u => '• ' + lineaPorLiberar(u)).join('\n') : '• Ninguna por ahora';
-  return t + '\n\nHoras estimadas por ruta (sin GPS).';
+  return t + '\n\nLibre = descarga finalizada. ETA a ' + (X.base || 'Huachipa') + ' estimada por ruta (sin GPS).';
 }
 function pintarDisp() {
   const X = (typeof D !== 'undefined' && D && D.disponibilidad) || (typeof datos !== 'undefined' && datos && datos.disponibilidad);
@@ -409,7 +411,7 @@ function pintarDisp() {
   const fila = (txt, cls) => '<div class="dispf ' + cls + '">' + esc(txt) + '</div>';
   $('dispLibres').innerHTML = '<div class="small" style="font-weight:700;margin:6px 0 2px">Libres (' + X.libres.length + ')</div>' + (X.libres.length ? X.libres.map(u => fila(lineaLibre(u), 'lib')).join('') : '<div class="small">Ninguna por ahora.</div>');
   $('dispPorLib').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">Por liberarse (' + X.por_liberar.length + ')</div>' + (X.por_liberar.length ? X.por_liberar.map(u => fila(lineaPorLiberar(u), 'por')).join('') : '<div class="small">Ninguna por ahora.</div>');
-  $('dispNota').textContent = 'Descarga estándar ' + X.descarga_h + ' h y regreso por la misma ruta. Es un estimado, sin GPS.';
+  $('dispNota').textContent = 'Libre = descarga finalizada. ETA a ' + (X.base || 'Huachipa') + ' = fin de descarga + regreso por la ruta (hoja Rutas). Descarga estándar ' + X.descarga_h + ' h. Estimado, sin GPS.';
   $('btnWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(textoDisp(X)), '_blank');
   $('btnCopiar').onclick = async () => { try { await navigator.clipboard.writeText(textoDisp(X)); $('btnCopiar').textContent = '¡Copiado!'; } catch (e) { $('btnCopiar').textContent = 'No se pudo copiar'; } setTimeout(() => $('btnCopiar').textContent = 'Copiar texto', 2000); };
 }
