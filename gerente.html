@@ -432,7 +432,7 @@ function lineaNoDisp(u) {
   const ruta = u.destino ? ' a ' + u.destino : '';
   const cita = u.cita ? ' (cita ' + u.cita + ')' : '';
   const pl = u.eta_planta ? ' · disponible en ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '') : ' · disponibilidad sin dato (falta la ruta)';
-  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — NO DISPONIBLE: ' + u.motivo.toLowerCase() + ruta + cita + pl;
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — NO DISPONIBLE: ' + u.motivo.toLowerCase() + ruta + cita + (u.sale ? ' · sale ' + hmD(u.sale) : '') + pl;
 }
 function textoDisp(X) {
   const f = new Date(X.generado);

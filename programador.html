@@ -119,6 +119,16 @@
         <div class="small" style="margin-top:6px">Cita de carga = hora a la que el camión debe estar en la planta de origen para cargar. No es la hora de llegada al destino.</div>
         <div class="quick"><button type="button" id="qHoy">Hoy</button><button type="button" id="qManana">Mañana</button></div>
 
+        <div id="bloqueSalida" class="hidden" style="margin-top:16px">
+          <label>¿Sale más tarde? (la unidad ya está en planta pero no saldrá ahora)</label>
+          <div class="row2">
+            <div><label for="salFecha">Fecha de salida</label><input id="salFecha" type="date"></div>
+            <div><label for="salHora">Hora de salida</label><input id="salHora" type="time" step="300"></div>
+          </div>
+          <div class="quick"><button type="button" id="qSalManana">Mañana 05:00</button><button type="button" id="qSalAhora">Sale ahora</button></div>
+          <div class="small" style="margin-top:6px">La disponibilidad se calcula desde esa hora. Si lo dejas vacío, se asume que sale ahora.</div>
+        </div>
+
         <button id="btnGuardar" class="send" type="button">Programar viaje</button>
         <button id="btnCancelarEdicion" class="sec hidden" type="button">Cancelar edición</button>
         <div id="resultado"></div>
@@ -268,6 +278,7 @@ async function guardar() {
   const d = editando
     ? { accion:'editar', id: editando.id, tipo_carga: tipoCarga(), fecha: $('fecha').value, hora: $('hora').value }
     : { accion:'crear', placa: nueva ? $('npPlaca').value.trim() : $('placa').value, tipo_carga: tipoCarga(), origen_id: $('origen').value, destino_id: $('destino').value, fecha: $('fecha').value, hora: $('hora').value };
+  if (editando && !$('bloqueSalida').classList.contains('hidden')) { d.salida_fecha = $('salFecha').value; d.salida_hora = $('salHora').value; }
   if (editando && editando.estado === 'Programado') {
     d.origen_id = $('origen').value; d.destino_id = $('destino').value;
     if ($('placa').value === '__nueva__') return mensaje('bad', 'Para una placa nueva, primero agrégala en la hoja Flota o programa un viaje nuevo.');
@@ -292,7 +303,7 @@ async function guardar() {
 }
 
 function salirEdicion() {
-  editando = null; $('modoEdicion').classList.add('hidden'); $('btnCancelarEdicion').classList.add('hidden');
+  editando = null; $('modoEdicion').classList.add('hidden'); $('btnCancelarEdicion').classList.add('hidden'); $('bloqueSalida').classList.add('hidden');
   $('placa').disabled = false; $('origen').disabled = false; $('destino').disabled = false;
   $('btnGuardar').textContent = 'Programar viaje';
 }
@@ -308,6 +319,12 @@ function editar(id) {
   $('origen').disabled = soloCita; $('destino').disabled = soloCita;
   $('fecha').value = v.dia; $('hora').value = v.hora;
   $('modoEdicion').textContent = 'Editando el viaje ' + v.id + ' (' + v.placa + ')' + (soloCita ? ' · en curso: solo cita y tipo de carga' : '');
+  const enPlanta = v.estado === 'En curso' && ['Llegué al origen', 'En espera de carga', 'Iniciando carga'].includes(v.ultimo);
+  $('bloqueSalida').classList.toggle('hidden', !enPlanta);
+  if (enPlanta) {
+    const z = { timeZone: 'America/Lima' }, s = v.salida ? new Date(v.salida) : null;
+    $('salFecha').value = s ? s.toLocaleDateString('en-CA', z) : ''; $('salHora').value = s ? s.toLocaleTimeString('en-GB', Object.assign({ hour: '2-digit', minute: '2-digit', hour12: false }, z)) : '';
+  }
   $('modoEdicion').classList.remove('hidden'); $('btnCancelarEdicion').classList.remove('hidden');
   $('btnGuardar').textContent = 'Guardar cambios'; $('resultado').innerHTML = '';
   window.scrollTo(0, 0);
@@ -343,7 +360,7 @@ function lineaNoDisp(u) {
   const ruta = u.destino ? ' a ' + u.destino : '';
   const cita = u.cita ? ' (cita ' + u.cita + ')' : '';
   const pl = u.eta_planta ? ' · disponible en ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '') : ' · disponibilidad sin dato (falta la ruta)';
-  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — NO DISPONIBLE: ' + u.motivo.toLowerCase() + ruta + cita + pl;
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — NO DISPONIBLE: ' + u.motivo.toLowerCase() + ruta + cita + (u.sale ? ' · sale ' + hmD(u.sale) : '') + pl;
 }
 function textoDisp(X) {
   const f = new Date(X.generado);
@@ -379,7 +396,7 @@ function pintarLista() {
       '<div class="v" data-vid="' + esc(v.id) + '"><div class="top"><span class="pl">' + esc(v.placa) + '</span><span class="tag ' + (v.estado === 'En curso' ? 'curso' : v.estado === 'Terminado' ? 'fin' : '') + '">' + esc(v.estado) + '</span></div>' +
       '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino) + '</div>' +
       '<div class="small"><b>' + esc(v.id) + '</b> · ' + (v.hora ? esc(v.hora) + ' h' : 'sin hora') + ' · ' + esc(v.chofer) + (v.tipo_carga ? ' · ' + esc(v.tipo_carga) : '') + '</div>' +
-      (v.ultimo ? '<div class="small">Último estatus: <b>' + esc(v.ultimo) + '</b></div>' : '') +
+      (v.ultimo ? '<div class="small">Último estatus: <b>' + esc(v.ultimo) + '</b>' + (v.salida && new Date(v.salida) > new Date() ? ' · sale <b>' + esc(hmD(v.salida)) + '</b>' : '') + '</div>' : '') +
       (v.estado === 'Terminado' ? '<div class="acts2" data-id="' + esc(v.id) + '"><button class="cor2" type="button">Corregir (error del chofer)</button></div>' : '<div class="acts" data-id="' + esc(v.id) + '"><button class="est" type="button">Registrar estatus</button><button class="ed" type="button">Editar</button>' + (v.reportes ? '' : '<button class="del" type="button">Cancelar viaje</button>') + '</div>') + '</div>').join('')).join('')
     : '<div class="card small">No hay viajes programados de hoy en adelante.</div>';
   $('lista').querySelectorAll('.acts2').forEach(a => {
@@ -489,6 +506,8 @@ document.addEventListener('visibilitychange', refrescoAuto);
 $('carga').onchange = () => $('cargaOtro').classList.toggle('hidden', $('carga').value !== '__otro__');
 $('qHoy').onclick = () => { $('fecha').value = D ? D.hoy : fechaLocal(new Date()); };
 $('qManana').onclick = () => { const d = new Date((D ? D.hoy : fechaLocal(new Date())) + 'T12:00:00'); d.setDate(d.getDate() + 1); $('fecha').value = fechaLocal(d); };
+$('qSalManana').onclick = () => { const d = new Date((D ? D.hoy : fechaLocal(new Date())) + 'T12:00:00'); d.setDate(d.getDate() + 1); $('salFecha').value = fechaLocal(d); $('salHora').value = '05:00'; };
+$('qSalAhora').onclick = () => { $('salFecha').value = ''; $('salHora').value = ''; };
 $('btnGuardar').onclick = guardar;
 $('btnCancelarEdicion').onclick = () => { salirEdicion(); $('resultado').innerHTML = ''; $('placa').value = ''; infoPlaca(); };
 $('tabNuevo').onclick = () => mostrarTab('nuevo');
