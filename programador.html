@@ -53,6 +53,7 @@
 
   .pw { position:relative; } .pw input { padding-right:68px; } .pw .eye { position:absolute; right:4px; top:50%; transform:translateY(-50%); min-width:56px; height:44px; border:0; background:none; color:var(--brand); font:inherit; font-size:14px; font-weight:700; cursor:pointer; }
   .dispf { padding:7px 0; border-top:1px solid var(--line); font-size:13px; line-height:1.35; } .dispf.lib { border-left:3px solid #1e9e5a; padding-left:8px; } .dispf.por { border-left:3px solid #d98a00; padding-left:8px; } .dispf.no { border-left:3px solid #8a94a6; padding-left:8px; }
+  .hintp { margin-top:8px; padding:9px 11px; border-radius:10px; font-size:13px; line-height:1.4; border:1px solid var(--line); border-left-width:5px; background:var(--card); } .hintp.lib { border-left-color:#1e9e5a; } .hintp.por { border-left-color:#d98a00; } .hintp.no { border-left-color:#8a94a6; } .hintp .warn { display:block; margin-top:5px; font-weight:700; color:var(--crit); }
   .dispb { display:flex; gap:8px; margin-top:10px; } .dispb button { flex:1; font:inherit; font-size:14px; font-weight:700; padding:11px 8px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); } .dispb #btnWa { background:#1e9e5a; border-color:#1e9e5a; color:#fff; }
 </style>
 </head>
@@ -86,6 +87,7 @@
         <label for="placa">Placa</label>
         <select id="placa"></select>
         <div id="infoPlaca" class="chips"></div>
+        <div id="hintPlaca" class="hintp hidden" aria-live="polite"></div>
 
         <div id="nuevaPlaca" class="hidden">
           <label for="npPlaca">Placa nueva (tracto/carreta)</label>
@@ -170,7 +172,8 @@ const ERRORES = {
   en_curso: 'El viaje ya está en curso: solo se puede cambiar la cita y el tipo de carga.', terminado: 'El viaje ya terminó.', evento_no_existe: 'Ese estatus ya no existe (quizá ya se anuló). Actualiza la lista.', datos: 'Faltan datos.', estatus: 'Estatus no válido.', hora_futura: 'La hora no puede ser futura.'
 };
 
-let clave = LS.get('clave', ''), D = null, editando = null;
+let clave = LS.get('clave', ''), D = null, editando = null, ultimaCarga = 0;
+const REFRESCO_MIN = 5;   // la disponibilidad se actualiza sola cada 5 min (objetivo: informar la disponibilidad real a las 3 pm)
 
 async function pedir(accion) {
   try {
@@ -189,7 +192,7 @@ async function cargar() {
   const j = await pedir();
   if (!j) { if (!D) mostrarLogin('Sin señal. Intenta de nuevo.'); return false; }
   if (!j.ok) { clave = ''; LS.set('clave', ''); mostrarLogin(ERRORES[j.error] || ('Error: ' + (j.error || ''))); return false; }
-  LS.set('clave', clave); D = j;
+  LS.set('clave', clave); D = j; ultimaCarga = Date.now();
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   llenarListas(); pintarLista();
   return true;
@@ -221,6 +224,38 @@ function infoPlaca() {
   $('nuevaPlaca').classList.toggle('hidden', !nueva);
   const p = D.placas.find(x => x.placa === v);
   $('infoPlaca').innerHTML = p ? [p.empresa, p.chofer, p.tipo_unidad, p.licencia ? 'Lic. ' + p.licencia : 'SIN LICENCIA'].filter(Boolean).map(x => '<span class="chip">' + esc(x) + '</span>').join('') : '';
+  hintPlaca();
+}
+
+// Aviso al programar: dice si la unidad está libre, por liberarse o no disponible, y si llega a Huachipa antes de la cita.
+function hintPlaca() {
+  const el = $('hintPlaca'); if (!el) return;
+  const v = $('placa').value, X = D && D.disponibilidad;
+  if (!v || v === '__nueva__' || editando || !X || X.error) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  const base = X.base || 'Huachipa', ahora = new Date();
+  const ap = u => u.aprox ? ' (aprox.)' : '';
+  let u, cls, txt, listo = null;
+  if ((u = (X.libres || []).find(x => x.placa === v))) {
+    cls = 'lib';
+    if (u.eta_planta && new Date(u.eta_planta) > ahora) { listo = u.eta_planta; txt = '🟢 <b>Libre</b> · llega a ' + base + ' ~' + hmD(listo) + ap(u); }
+    else txt = u.sin_ruta ? '🟢 <b>Libre</b> · llegada a ' + base + ' sin dato (falta la ruta)' : '🟢 <b>Libre</b> · ya en ' + base;
+  } else if ((u = (X.por_liberar || []).find(x => x.placa === v))) {
+    cls = 'por'; listo = u.eta_planta || null;
+    txt = '🟡 <b>Por liberarse</b>' + (u.libre_en_destino ? ' ~' + hmD(u.libre_en_destino) + ' en ' + esc(u.destino || '') : '') + (u.eta_planta ? ' · llega a ' + base + ' ~' + hmD(u.eta_planta) + ap(u) : ' · llegada a ' + base + ' sin dato');
+  } else if ((u = (X.no_disponibles || []).find(x => x.placa === v))) {
+    cls = 'no'; listo = u.eta_planta || null;
+    txt = '🔴 <b>No disponible</b>: ' + esc((u.motivo || '').toLowerCase()) + (u.destino ? ' a ' + esc(u.destino) : '') + (u.eta_planta ? ' · disponible en ' + base + ' ~' + hmD(u.eta_planta) + ap(u) : ' · disponibilidad sin dato');
+  } else { cls = 'no'; txt = 'Sin datos de disponibilidad para esta placa.'; }
+  let aviso = '';
+  const f = $('fecha').value, h = $('hora').value;
+  if (listo && f && h && $('origen').value === PLANTA_DEFECTO) {
+    const cita = new Date(f + 'T' + h + ':00-05:00'), t = new Date(listo);
+    if (!isNaN(cita) && cita < t) {
+      const m = Math.round((t - cita) / 60000);
+      aviso = '<span class="warn">⚠ La cita (' + esc(h) + ') es antes de que esté en ' + base + ' (~' + hmD(listo) + '): llegaría ' + (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '')) + ' tarde.</span>';
+    }
+  }
+  el.className = 'hintp ' + cls; el.innerHTML = txt + aviso;
 }
 
 function tipoCarga() { return $('carga').value === '__otro__' ? $('cargaOtro').value.trim() : $('carga').value; }
@@ -323,7 +358,7 @@ function pintarDisp() {
   $('dispLibres').innerHTML = '<div class="small" style="font-weight:700;margin:6px 0 2px">Libres (' + X.libres.length + ')</div>' + (X.libres.length ? X.libres.map(u => fila(lineaLibre(u), 'lib')).join('') : '<div class="small">Ninguna por ahora.</div>');
   $('dispPorLib').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">Por liberarse (' + X.por_liberar.length + ')</div>' + (X.por_liberar.length ? X.por_liberar.map(u => fila(lineaPorLiberar(u), 'por')).join('') : '<div class="small">Ninguna por ahora.</div>');
   $('dispNoDisp').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">No disponibles (' + (X.no_disponibles || []).length + ')</div>' + ((X.no_disponibles || []).length ? X.no_disponibles.map(u => fila(lineaNoDisp(u), 'no')).join('') : '<div class="small">Ninguna.</div>');
-  $('dispNota').textContent = 'Libre = descarga finalizada y sin viaje pendiente hoy. No disponible = en planta cargando o con viaje de hoy por empezar: la hora es salida + ida + descarga + regreso a ' + (X.base || 'Huachipa') + ' (hoja Rutas). Descarga estándar ' + X.descarga_h + ' h. Estimado, sin GPS.';
+  $('dispNota').textContent = 'Libre = descarga finalizada y sin viaje pendiente hoy. No disponible = en planta cargando o con viaje de hoy por empezar: la hora es salida + ida + descarga + regreso a ' + (X.base || 'Huachipa') + ' (hoja Rutas). Descarga estándar ' + X.descarga_h + ' h. Estimado, sin GPS. Actualizado ' + hmD(X.generado) + ' · se refresca solo cada ' + REFRESCO_MIN + ' min.';
   $('btnWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(textoDisp(X)), '_blank');
   $('btnCopiar').onclick = async () => { try { await navigator.clipboard.writeText(textoDisp(X)); $('btnCopiar').textContent = '¡Copiado!'; } catch (e) { $('btnCopiar').textContent = 'No se pudo copiar'; } setTimeout(() => $('btnCopiar').textContent = 'Copiar texto', 2000); };
 }
@@ -435,6 +470,16 @@ $('verClave').onclick = () => { const i = $('clave'), v = i.type === 'password';
 $('btnEntrar').onclick = () => { clave = $('clave').value.trim(); cargar(); };
 $('clave').addEventListener('keydown', e => { if (e.key === 'Enter') { clave = $('clave').value.trim(); cargar(); } });
 $('placa').onchange = infoPlaca;
+['fecha', 'hora', 'origen'].forEach(id => { $(id).addEventListener('input', hintPlaca); $(id).addEventListener('change', hintPlaca); });
+// Refresco automático: solo si la página está a la vista, pasaron ~5 min y no hay un panel abierto (corregir / cancelar).
+function refrescoAuto() {
+  if (!clave || !D || document.visibilityState !== 'visible') return;
+  if (Date.now() - ultimaCarga < REFRESCO_MIN * 60000 - 5000) return;
+  if (!$('vistaLista').classList.contains('hidden') && document.querySelector('#vistaLista .an, #vistaLista .si')) return;
+  cargar();
+}
+setInterval(refrescoAuto, 60000);
+document.addEventListener('visibilitychange', refrescoAuto);
 $('carga').onchange = () => $('cargaOtro').classList.toggle('hidden', $('carga').value !== '__otro__');
 $('qHoy').onclick = () => { $('fecha').value = D ? D.hoy : fechaLocal(new Date()); };
 $('qManana').onclick = () => { const d = new Date((D ? D.hoy : fechaLocal(new Date())) + 'T12:00:00'); d.setDate(d.getDate() + 1); $('fecha').value = fechaLocal(d); };
