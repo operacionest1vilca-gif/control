@@ -404,11 +404,16 @@ function pintarVivo() {
 
 
 // ── Disponibilidad de unidades (libres y por liberarse) ──
-const hmD = iso => iso ? new Date(iso).toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'America/Lima' }) : '';
+const hmD = iso => {
+  if (!iso) return '';
+  const d = new Date(iso), z = { timeZone: 'America/Lima' }, dia = x => x.toLocaleDateString('en-CA', z);
+  const hm = d.toLocaleTimeString('es-PE', Object.assign({ hour: '2-digit', minute: '2-digit', hour12: false }, z)), k = dia(d);
+  return k === dia(new Date()) ? hm : k === dia(new Date(Date.now() + 864e5)) ? 'mañana ' + hm : k === dia(new Date(Date.now() - 864e5)) ? 'ayer ' + hm : d.toLocaleDateString('es-PE', Object.assign({ day: '2-digit', month: '2-digit' }, z)) + ' ' + hm;
+};
 function haceD(iso) { if (!iso) return ''; const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000)); return (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : '')).trim(); }
 function lineaLibre(u) {
   const base = u.planta || 'Huachipa';
-  const d = u.donde ? 'descargó en ' + u.donde + (u.libre_desde ? ' a las ' + hmD(u.libre_desde) + ' (hace ' + haceD(u.libre_desde) + ')' : '') : 'sin viaje reciente, en ' + base;
+  const d = u.donde ? 'descargó en ' + u.donde + (u.libre_desde ? ' (' + hmD(u.libre_desde) + ', hace ' + haceD(u.libre_desde) + ')' : '') : 'sin viaje reciente, en ' + base;
   let pl = '';
   if (u.eta_planta) pl = new Date(u.eta_planta) <= new Date() ? ' · ya debería estar en ' + base : ' · ETA a ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '');
   else if (u.sin_ruta) pl = ' · ETA a ' + base + ' sin dato (falta la ruta)';
