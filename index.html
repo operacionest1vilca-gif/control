@@ -405,7 +405,7 @@ function tarjetaViaje(v) {
   return '<div class="viaje' + (est === 'Terminado' ? ' terminado' : '') + '">' +
     '<div class="row"><span class="small"><b>' + esc(v.id) + '</b> · ' + esc(v.placa) + '</span>' + badge + '</div>' +
     '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino || 'destino por confirmar') + '</div>' +
-    '<div class="det">' + (v.cita ? 'Hora ref. ' + (v.hoy ? '' : esc(ddmm(v.dia)) + ' ') + esc(v.cita) + ' h' : 'Hora ref. por confirmar') +
+    '<div class="det">' + (v.cita ? 'Cita de carga ' + (v.hoy ? '' : esc(ddmm(v.dia)) + ' ') + esc(v.cita) + ' h' : 'Cita de carga por confirmar') +
       (v.tipo_carga ? ' · ' + esc(v.tipo_carga) : '') + (v.tipo_unidad ? ' · ' + esc(v.tipo_unidad) : '') + '</div>' +
     accion + '</div>';
 }
@@ -437,7 +437,7 @@ function pintarCabecera() {
   if (!v) return;
   $('viajeCab').innerHTML = '<div class="small"><b>' + esc(v.id) + '</b> · ' + esc(v.placa) + '</div>' +
     '<div class="ruta" style="font-weight:700;font-size:18px;margin:4px 0 2px">' + esc(v.origen) + ' → ' + esc(v.destino || 'destino por confirmar') + '</div>' +
-    '<div class="det small">' + (v.cita ? 'Hora ref. ' + esc(v.cita) + ' h' : 'Hora ref. por confirmar') +
+    '<div class="det small">' + (v.cita ? 'Cita de carga ' + esc(v.cita) + ' h' : 'Cita de carga por confirmar') +
     (v.tipo_carga ? ' · ' + esc(v.tipo_carga) : '') + (v.tipo_unidad ? ' · ' + esc(v.tipo_unidad) : '') + '</div>';
 }
 

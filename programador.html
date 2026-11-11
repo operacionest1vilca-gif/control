@@ -113,9 +113,10 @@
         </div>
 
         <div class="row2">
-          <div><label for="fecha">Fecha de cita (referencial)</label><input id="fecha" type="date"></div>
-          <div><label for="hora">Hora de cita (ref.)</label><input id="hora" type="time" step="300"></div>
+          <div><label for="fecha">Fecha de cita de carga</label><input id="fecha" type="date"></div>
+          <div><label for="hora">Hora de cita de carga</label><input id="hora" type="time" step="300"></div>
         </div>
+        <div class="small" style="margin-top:6px">Cita de carga = hora a la que el camión debe estar en la planta de origen para cargar. No es la hora de llegada al destino.</div>
         <div class="quick"><button type="button" id="qHoy">Hoy</button><button type="button" id="qManana">Mañana</button></div>
 
         <button id="btnGuardar" class="send" type="button">Programar viaje</button>
@@ -166,7 +167,7 @@ const ddmm = iso => { const p = String(iso || '').split('-'); return p.length ==
 const fechaLocal = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const ERRORES = {
   clave: 'Clave incorrecta.', placa: 'Elige o escribe la placa.', origen: 'Elige un origen válido.', destino: 'Elige un destino válido.',
-  placa_en_curso: 'La placa y el chofer solo se cambian antes de que el chofer reporte. Cancela este viaje y programa otro.', origen_igual_destino: 'El origen y el destino no pueden ser el mismo punto.', cita: 'Revisa la fecha y la hora de la cita.',
+  placa_en_curso: 'La placa y el chofer solo se cambian antes de que el chofer reporte. Cancela este viaje y programa otro.', origen_igual_destino: 'El origen y el destino no pueden ser el mismo punto.', cita: 'Revisa la fecha y la hora de la cita de carga.',
   licencia: 'Falta la licencia (Q + 8 dígitos del DNI). Sin ella el chofer no puede ingresar.', capacidad: 'No hay más espacio en la hoja de viajes. Archiva viajes antiguos.',
   viaje_no_existe: 'Ese viaje ya no existe.', tiene_reportes: 'No se puede cancelar: el chofer ya reportó estatus en este viaje.',
   en_curso: 'El viaje ya está en curso: solo se puede cambiar la cita y el tipo de carga.', terminado: 'El viaje ya terminó.', evento_no_existe: 'Ese estatus ya no existe (quizá ya se anuló). Actualiza la lista.', datos: 'Faltan datos.', estatus: 'Estatus no válido.', hora_futura: 'La hora no puede ser futura.'
@@ -252,7 +253,7 @@ function hintPlaca() {
     const cita = new Date(f + 'T' + h + ':00-05:00'), t = new Date(listo);
     if (!isNaN(cita) && cita < t) {
       const m = Math.round((t - cita) / 60000);
-      aviso = '<span class="warn">⚠ La cita (' + esc(h) + ') es antes de que esté en ' + base + ' (~' + hmD(listo) + '): llegaría ' + (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '')) + ' tarde.</span>';
+      aviso = '<span class="warn">⚠ La cita de carga (' + esc(h) + ') es antes de que esté en ' + base + ' (~' + hmD(listo) + '): llegaría ' + (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '')) + ' tarde.</span>';
     }
   }
   el.className = 'hintp ' + cls; el.innerHTML = txt + aviso;
@@ -275,7 +276,7 @@ async function guardar() {
   if (!editando && nueva) { d.empresa = $('npEmpresa').value.trim(); d.chofer = $('npChofer').value.trim(); d.licencia = $('npLic').value.trim(); d.tipo_unidad = $('npUnidad').value.trim(); }
   if (!d.placa && !editando) return mensaje('bad', ERRORES.placa);
   if (!d.destino_id && !editando) return mensaje('bad', 'Elige el destino.');
-  if (!d.hora) return mensaje('bad', 'Falta la hora de cita (referencial).');
+  if (!d.hora) return mensaje('bad', 'Falta la hora de la cita de carga.');
   $('btnGuardar').disabled = true; const t0 = $('btnGuardar').textContent; $('btnGuardar').textContent = 'Guardando…';
   const j = await pedir(d);
   $('btnGuardar').disabled = false; $('btnGuardar').textContent = t0;

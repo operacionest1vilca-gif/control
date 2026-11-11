@@ -203,7 +203,7 @@
       <section class="card">
         <h2>Llegadas estimadas (ETA)</h2>
         <div id="etas"></div>
-        <div class="small" style="margin-top:6px">Hora estimada de llegada al destino de los camiones en tránsito. Se recalcula con cada reporte del chofer.</div>
+        <div class="small" style="margin-top:6px">Hora estimada de llegada al destino de los camiones en tránsito: es la hora que se informa al cliente. Se recalcula con cada reporte del chofer. La cita de carga (hora de llegada a la planta) es otra cosa y se ve en cada viaje.</div>
       </section>
 
       <details class="card"><summary>Control de esperas (horas)</summary>
@@ -362,7 +362,7 @@ function pintarVivo() {
     '<div><b>' + K.en_transito + '</b><span>En tránsito</span></div>' +
     '<div><b>' + K.en_espera + '</b><span>En espera</span></div>' +
     '<div class="' + (K.alertas ? 'al' : '') + '"><b>' + K.alertas + '</b><span>Con alerta (≥ ' + P.umbral + ' h)</span></div>' +
-    '<div><b>' + K.con_retraso + '</b><span>Con retraso previsto</span></div>';
+    '<div><b>' + P.viajes.filter(v => v.puntualidad != null && v.puntualidad > 0).length + '</b><span>Llegaron tarde a cargar</span></div>';
 
   // Etapas: barra apilada + leyenda con números (el color nunca va solo)
   $('etapas').innerHTML = '<div class="stack" role="img" aria-label="Viajes por etapa">' +
@@ -373,7 +373,7 @@ function pintarVivo() {
   const enRuta = P.viajes.filter(v => v.estado === 'En tránsito cargado').sort((a, b) => (a.eta || '9') < (b.eta || '9') ? -1 : 1);
   $('etas').innerHTML = enRuta.length ? enRuta.map(v =>
     '<div class="eta"><div class="h">' + (v.eta ? hhmm(v.eta) : '–') + '</div><div class="d"><b>' + esc(v.placa.split('/')[0]) + ' → ' + esc(v.destino || '—') + '</b>' +
-    '<span class="small">' + (v.retraso > 0 ? '⚠ ' + Math.round(v.retraso) + ' min sobre la hora ref.' : v.eta ? 'Dentro de la hora ref.' : 'Sin cálculo aún') + '</span></div></div>').join('')
+    '<span class="small">' + (v.eta ? 'Llegada estimada al destino' : 'Sin cálculo aún') + '</span></div></div>').join('')
     : '<div class="small">No hay camiones en tránsito ahora.</div>';
 
   // Esperas (control): barras horizontales en horas; rojo = alerta
@@ -481,13 +481,13 @@ function pintarLista() {
     const etiqueta = v.nivel === 'alerta' ? '<span class="tag crit">⚠ ' + esc(v.alerta.replace('ALERTA: ', '')) + '</span>'
       : v.nivel === 'supero' ? '<span class="tag warn">⚠ ' + esc(v.alerta) + '</span>'
       : v.nivel === 'incidencia' ? '<span class="tag warn">⚠ Incidencia reportada</span>'
-      : v.retraso > 0 ? '<span class="tag warn">Retraso previsto ' + Math.round(v.retraso) + ' min</span>' : '';
+      : v.puntualidad > 0 ? '<span class="tag warn">Llegó ' + Math.round(v.puntualidad) + ' min tarde a cargar</span>' : '';
     const eta = v.eta && v.estado === 'En tránsito cargado' ? ' · ETA <b>' + hhmm(v.eta) + '</b>' : '';
     const cierre = estaTerm(v) && v.cierre ? ' · terminó ' + hhmm(v.cierre) + ' ✓' : '';
     return '<div class="v ' + nivelClase(v) + '"><div class="top"><span class="pl">' + (v.cita ? esc(v.cita) + ' · ' : '') + esc(v.placa) + '</span><span class="tag">' + esc(v.estado) + '</span></div>' +
       '<div class="ruta">' + esc(v.origen) + ' → ' + esc(v.destino || '—') + '</div>' +
       '<div class="det">' + esc(v.empresa) + (v.chofer_vis ? ' · ' + esc(v.chofer_vis) : '') + (v.carga ? ' · ' + esc(v.carga) : '') + '</div>' +
-      '<div class="det">' + 'Hora ref. ' + esc(v.cita || '—') + ' h' + eta + cierre + '</div>' +
+      '<div class="det">' + 'Cita de carga ' + esc(v.cita || '—') + ' h' + eta + cierre + '</div>' +
       ((v.espera_carga != null || v.espera_desc != null) ? '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">' + chipEspera('Espera carga', v.espera_carga, 'carga') + chipEspera('Espera descarga', v.espera_desc, 'desc') + '</div>' : '') +
       (etiqueta ? '<div style="margin-top:6px">' + etiqueta + '</div>' : '') + '</div>';
   }).join('') : '<div class="card small">No hay viajes en esta vista.</div>';
