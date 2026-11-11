@@ -432,14 +432,14 @@ function lineaPorLiberar(u) {
   const a = u.estado === 'En tránsito cargado' ? 'llega a ' + u.destino + (u.llega_destino ? ' ~' + hmD(u.llega_destino) : '') : 'descargando en ' + u.destino;
   const pl = u.eta_planta ? ' · ETA a ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '') : (u.sin_ruta ? ' · ETA a ' + base + ' sin dato (falta la ruta)' : '');
   const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora : '';
-  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + a + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px;
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + a + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px + (u.taller_luego ? ' · 🛠 irá a taller al terminar' + (u.taller_luego.motivo ? ' (' + u.taller_luego.motivo + ')' : '') : '');
 }
 function lineaNoDisp(u) {
   const base = u.planta || 'Huachipa';
   const ruta = u.destino ? ' a ' + u.destino : '';
   const cita = u.cita ? ' (cita ' + u.cita + ')' : '';
   const pl = u.eta_planta ? ' · disponible en ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '') : ' · disponibilidad sin dato (falta la ruta)';
-  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — NO DISPONIBLE: ' + u.motivo.toLowerCase() + ruta + cita + (u.sale ? ' · sale ' + hmD(u.sale) : '') + pl;
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — NO DISPONIBLE: ' + u.motivo.toLowerCase() + ruta + cita + (u.sale ? ' · sale ' + hmD(u.sale) : '') + pl + (u.taller_luego ? ' · 🛠 irá a taller al terminar' + (u.taller_luego.motivo ? ' (' + u.taller_luego.motivo + ')' : '') : '');
 }
 function textoDisp(X) {
   const f = new Date(X.generado);

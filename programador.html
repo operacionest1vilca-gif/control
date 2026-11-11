@@ -363,14 +363,14 @@ function lineaPorLiberar(u) {
   const a = u.estado === 'En tránsito cargado' ? 'llega a ' + u.destino + (u.llega_destino ? ' ~' + hmD(u.llega_destino) : '') : 'descargando en ' + u.destino;
   const pl = u.eta_planta ? ' · ETA a ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '') : (u.sin_ruta ? ' · ETA a ' + base + ' sin dato (falta la ruta)' : '');
   const px = u.proximo ? ' · próximo viaje ' + u.proximo.hora : '';
-  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + a + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px;
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — ' + a + (u.libre_en_destino ? ' · libre ~' + hmD(u.libre_en_destino) : '') + pl + px + (u.taller_luego ? ' · 🛠 irá a taller al terminar' + (u.taller_luego.motivo ? ' (' + u.taller_luego.motivo + ')' : '') : '');
 }
 function lineaNoDisp(u) {
   const base = u.planta || 'Huachipa';
   const ruta = u.destino ? ' a ' + u.destino : '';
   const cita = u.cita ? ' (cita ' + u.cita + ')' : '';
   const pl = u.eta_planta ? ' · disponible en ' + base + ' ~' + hmD(u.eta_planta) + (u.aprox ? ' (aprox.)' : '') : ' · disponibilidad sin dato (falta la ruta)';
-  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — NO DISPONIBLE: ' + u.motivo.toLowerCase() + ruta + cita + (u.sale ? ' · sale ' + hmD(u.sale) : '') + pl;
+  return u.placa + (u.chofer ? ' · ' + u.chofer : '') + ' — NO DISPONIBLE: ' + u.motivo.toLowerCase() + ruta + cita + (u.sale ? ' · sale ' + hmD(u.sale) : '') + pl + (u.taller_luego ? ' · 🛠 irá a taller al terminar' + (u.taller_luego.motivo ? ' (' + u.taller_luego.motivo + ')' : '') : '');
 }
 function textoDisp(X) {
   const f = new Date(X.generado);
@@ -392,13 +392,13 @@ function pintarDisp() {
   const card = $('dispCard'); if (!card) return;
   if (!X || X.error) { $('dispLibres').innerHTML = '<div class="small">No se pudo calcular la disponibilidad' + (X && X.error ? ' (' + esc(X.error) + ')' : '') + '.</div>'; $('dispPorLib').innerHTML = ''; return; }
   const fila = (txt, cls, placa, btn) => '<div class="dispf ' + cls + '" data-placa="' + esc(placa || '') + '">' + esc(txt) + (btn ? '<div><button class="' + btn[0] + '" type="button">' + btn[1] + '</button></div>' : '') + '</div>';
-  const BT = ['tlbtn', '🛠 Ingresa a taller'];
+  const BT = ['tlbtn', '🛠 Ingresa a taller'], QT = ['tlsal', '↩ Quitar de taller'];
   const TA = X.taller || [];
   $('dispLibres').innerHTML = '<div class="small" style="font-weight:700;margin:6px 0 2px">Libres (' + X.libres.length + ')</div>' + (X.libres.length ? X.libres.map(u => fila(lineaLibre(u), 'lib', u.placa, BT)).join('') : '<div class="small">Ninguna por ahora.</div>');
-  $('dispPorLib').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">Por liberarse (' + X.por_liberar.length + ')</div>' + (X.por_liberar.length ? X.por_liberar.map(u => fila(lineaPorLiberar(u), 'por', u.placa)).join('') : '<div class="small">Ninguna por ahora.</div>');
-  $('dispNoDisp').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">No disponibles (' + (X.no_disponibles || []).length + ')</div>' + ((X.no_disponibles || []).length ? X.no_disponibles.map(u => fila(lineaNoDisp(u), 'no', u.placa, u.motivo === 'Viaje pendiente de hoy' ? BT : null)).join('') : '<div class="small">Ninguna.</div>');
+  $('dispPorLib').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">Por liberarse (' + X.por_liberar.length + ')</div>' + (X.por_liberar.length ? X.por_liberar.map(u => fila(lineaPorLiberar(u), 'por', u.placa, u.taller_luego ? QT : BT)).join('') : '<div class="small">Ninguna por ahora.</div>');
+  $('dispNoDisp').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">No disponibles (' + (X.no_disponibles || []).length + ')</div>' + ((X.no_disponibles || []).length ? X.no_disponibles.map(u => fila(lineaNoDisp(u), 'no', u.placa, u.taller_luego ? QT : BT)).join('') : '<div class="small">Ninguna.</div>');
   $('dispTaller').innerHTML = '<div class="small" style="font-weight:700;margin:10px 0 2px">En taller (' + TA.length + ')</div>' + (TA.length ? TA.map(u => fila(lineaTaller(u), 'tll', u.placa, ['tlsal', '✅ Sale de taller'])).join('') : '<div class="small">Ninguna.</div>');
-  $('dispNota').textContent = 'Libre = descarga finalizada y sin viaje pendiente hoy. No disponible = en planta cargando o con viaje de hoy por empezar: la hora es salida + ida + descarga + regreso a ' + (X.base || 'Huachipa') + ' (hoja Rutas). Tránsito cargado solo de 05:00 a 22:00; el regreso vacío es libre. En taller = fuera de la disponibilidad hasta que marques "Sale de taller". Descarga estándar ' + X.descarga_h + ' h. Estimado, sin GPS. Actualizado ' + hmD(X.generado) + ' · se refresca solo cada ' + REFRESCO_MIN + ' min.';
+  $('dispNota').textContent = 'Libre = descarga finalizada y sin viaje pendiente hoy. No disponible = en planta cargando o con viaje de hoy por empezar: la hora es salida + ida + descarga + regreso a ' + (X.base || 'Huachipa') + ' (hoja Rutas). Tránsito cargado solo de 05:00 a 22:00; el regreso vacío es libre. En taller = fuera de la disponibilidad hasta que marques "Sale de taller". Si la unidad aún tiene un viaje en curso, queda marcada y pasa a taller al terminar. Descarga estándar ' + X.descarga_h + ' h. Estimado, sin GPS. Actualizado ' + hmD(X.generado) + ' · se refresca solo cada ' + REFRESCO_MIN + ' min.';
   $('btnWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(textoDisp(X)), '_blank');
   $('btnCopiar').onclick = async () => { try { await navigator.clipboard.writeText(textoDisp(X)); $('btnCopiar').textContent = '¡Copiado!'; } catch (e) { $('btnCopiar').textContent = 'No se pudo copiar'; } setTimeout(() => $('btnCopiar').textContent = 'Copiar texto', 2000); };
   const msgD = (cls, t) => { $('dispMsg').innerHTML = '<div class="msg ' + cls + '">' + t + '</div>'; };
@@ -417,7 +417,7 @@ function pintarDisp() {
       if (!j) { msgD('warn', 'Sin señal. No se guardó; intenta de nuevo.'); return; }
       if (!j.ok) { msgD('bad', esc(ERRORES[j.error] || ('No se pudo guardar (' + j.error + ')'))); return; }
       await cargar();
-      msgD(j.avisos && j.avisos.length ? 'warn' : 'ok', '✓ <b>' + esc(placa) + '</b> ingresó a taller y ya no figura disponible.' + (j.avisos && j.avisos.length ? '<br>⚠ ' + j.avisos.map(esc).join(' ') : ''));
+      msgD(j.avisos && j.avisos.length ? 'warn' : 'ok', '✓ <b>' + esc(placa) + '</b> ' + (j.avisos && j.avisos.some(a => /en curso/.test(a)) ? 'quedó marcada para taller (pasará a taller al terminar su viaje).' : 'ingresó a taller y ya no figura disponible.') + (j.avisos && j.avisos.length ? '<br>⚠ ' + j.avisos.map(esc).join(' ') : ''));
     };
   });
   card.querySelectorAll('.tlsal').forEach(b => b.onclick = async () => {
@@ -427,7 +427,7 @@ function pintarDisp() {
     if (!j) { msgD('warn', 'Sin señal. No se guardó; intenta de nuevo.'); return; }
     if (!j.ok) { msgD('bad', esc(ERRORES[j.error] || ('No se pudo guardar (' + j.error + ')'))); return; }
     await cargar();
-    msgD('ok', '✓ <b>' + esc(placa) + '</b> salió de taller y vuelve a la disponibilidad.');
+    msgD('ok', '✓ <b>' + esc(placa) + '</b>: ya no está marcada para taller y vuelve a la disponibilidad.');
   });
 }
 
